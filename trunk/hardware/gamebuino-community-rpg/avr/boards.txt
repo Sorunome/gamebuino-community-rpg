@@ -1,0 +1,17 @@
+# See: http://code.google.com/p/arduino/wiki/Platforms
+
+##############################################################
+gamebuino.name=Gamebuino Community RPG
+gamebuino.upload.protocol=arduino
+gamebuino.upload.maximum_size=29568
+gamebuino.upload.maximum_ram_size=2048
+gamebuino.upload.speed=115200
+gamebuino.upload.tool=arduino:avrdude
+
+gamebuino.build.mcu=atmega328p
+gamebuino.build.f_cpu=16000000L
+gamebuino.build.core=arduino:arduino
+gamebuino.build.variant=arduino:standard
+gamebuino.build.board=AVR_DUEMILANOVE
+##############################################################
+
