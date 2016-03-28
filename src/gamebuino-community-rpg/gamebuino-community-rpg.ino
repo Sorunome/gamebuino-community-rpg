@@ -2,62 +2,100 @@
 #include <Gamebuino.h>
 #include <EEPROM.h>
 #include <GB_Fat.h>
-Gamebuino gb;
-#define TILEMAP_WIDTH 12
-#define TILEMAP_HEIGHT 8
+
+#define TILE_WIDTH 8
+#define TILE_HEIGHT 8
+#define TILES_PASSABLE_END 4
+#define TILES_ANIMATED_START 4
+#define TILES_ANIMATED_END 14
+#define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
 #define SOUNDBUFFER_OFFSET (231 * 128)
-byte camX = 0;
-byte camY = 0;
-byte sprites[] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-                  0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
 
-byte sprite_player[] = {0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55};
-byte tilemap[TILEMAP_WIDTH * TILEMAP_HEIGHT];
+byte tileset_forest[]={
+  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+  0x00,0x00,0x08,0x00,0x40,0x04,0x00,0x00,
+  0x02,0x01,0x48,0x24,0x00,0x04,0x42,0x20,
+  0x00,0x24,0x0a,0x04,0x00,0x02,0x40,0x00,
+  0x00,0x40,0x10,0x60,0x00,0x40,0x20,0x00,
+  0x00,0x40,0x00,0x70,0x00,0x40,0x20,0x00,
+  0xff,0xf7,0x7b,0xf7,0xdf,0xef,0xdd,0xff,
+  0xff,0xfb,0xbd,0xfb,0xef,0xf7,0xee,0xff,
+  0xf0,0xfc,0x7e,0xf6,0xdf,0xef,0xdd,0xff,
+  0xf0,0xfc,0xbe,0xfa,0xef,0xf7,0xee,0xff,
+  0xff,0xf7,0x7b,0xf7,0xde,0xee,0xdc,0xf0,
+  0xff,0xfb,0xbd,0xfb,0xee,0xf6,0xec,0xf0,
+  0x0f,0x37,0x7b,0x77,0xdf,0xef,0xdd,0xff,
+  0x0f,0x3b,0x7d,0x7b,0xef,0xf7,0xee,0xff,
+  0xff,0xf7,0xfb,0xf7,0x5f,0x6f,0x3d,0x0f,
+  0xff,0xfb,0xfd,0xfb,0x6f,0x77,0x3e,0x0f,
+  0xf8,0xd4,0x6a,0xe2,0xd9,0xf5,0x69,0x95,
+  0x03,0x0c,0xdb,0xa5,0x8f,0x47,0xcf,0xaf,
+  0xc9,0xa3,0xf5,0xdd,0xea,0x62,0xd4,0xf8,
+  0x8f,0xdf,0x57,0x8f,0xa5,0xdb,0x0c,0x03,
+  0x00,0x60,0xd0,0xe8,0x74,0xaa,0xc2,0x61,
+  0x0e,0x1d,0x1e,0x34,0x3b,0x76,0xb9,0x9d,
+  0x81,0x2a,0xe4,0x54,0xe8,0xd0,0x60,0x00,
+  0x9a,0xb5,0x7e,0x2f,0x3a,0x17,0x1b,0x0e,
+  0xda,0x75,0xde,0xed,0x76,0xa3,0xc3,0x61,
+  0xff,0xd7,0x6b,0xe3,0xd9,0xf5,0x69,0x95,
+  0x81,0x2b,0xe6,0x57,0xeb,0xd6,0x79,0xdd,
+  0xc9,0xa3,0xf5,0xdd,0xeb,0x63,0xd7,0xff };
+byte* tileset_forest_pointer = tileset_forest;
+
+byte charset_player[]={
+  0x78,0x48,0xfe,0xfe,0x7a,0xf2,0x90,0x2f,
+  0x00,0x78,0x4f,0xff,0xfd,0x79,0x08,0x04,
+  0x00,0x00,0xfe,0xce,0x7a,0xf2,0xa0,0x20,
+  0x2f,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
+  0x2c,0xbf,0xff,0x7f,0xff,0xff,0x78,0x00,
+  0x20,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
+  0x2f,0x90,0xf2,0x7a,0xfe,0xfe,0x48,0x78,
+  0x04,0x08,0x79,0xfd,0xff,0x4f,0x78,0x00,
+  0x20,0xa0,0xf2,0x7a,0xce,0xfe,0x00,0x00,
+  0x78,0xce,0xfa,0x72,0xfa,0xbe,0x2f,0x00,
+  0x78,0xff,0xfd,0x79,0xfd,0xbf,0x2c,0x00,
+  0x78,0xce,0xfa,0x72,0xfa,0xbe,0x20,0x00 };
+byte* charset_player_pointer = charset_player;
+
+byte maskset_player[]={
+  0x78,0x78,0xfe,0xfe,0x7e,0xfe,0x90,0x3f,
+  0x00,0x78,0x7f,0xff,0xff,0x7f,0x08,0x04,
+  0x00,0x00,0xfe,0xfe,0x7e,0xfe,0xa0,0x20,
+  0x3f,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
+  0x3c,0xbf,0xff,0x7f,0xff,0xff,0x78,0x00,
+  0x20,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
+  0x3f,0x90,0xfe,0x7e,0xfe,0xfe,0x78,0x78,
+  0x04,0x08,0x7f,0xff,0xff,0x7f,0x78,0x00,
+  0x20,0xa0,0xfe,0x7e,0xfe,0xfe,0x00,0x00,
+  0x78,0xfe,0xfe,0x7e,0xfe,0xbe,0x3f,0x00,
+  0x78,0xff,0xff,0x7f,0xff,0xbf,0x3c,0x00,
+  0x78,0xfe,0xfe,0x7e,0xfe,0xbe,0x20,0x00 };
+byte* maskset_player_pointer = maskset_player;
+
+Gamebuino gb;
 
 GB_Fat sd;
 GB_File file;
 GB_File soundfile;
 
 void loadSong(uint16_t num){
-  byte * buf = gb.display.getBuffer();
-  soundfile.read(buf,num*1024,512);
-  write_flash_page((const char*)SOUNDBUFFER_OFFSET,buf);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128),buf + 128);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*2),buf + 128*2);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*3),buf + 128*3);
-  soundfile.read(buf,num*1024 + 512,512);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*4),buf);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*5),buf + 128);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*6),buf + 128*2);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET + 128*7),buf + 128*3);
+  byte *buf = gb.display.getBuffer();
+  soundfile.read(buf, num*1024, 512);
+  write_flash_page((const char*)SOUNDBUFFER_OFFSET, buf);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128), buf+128);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*2), buf+128*2);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*3), buf+128*3);
+  soundfile.read(buf, num*1024+512, 512);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*4), buf);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), buf+128);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), buf+128*2);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), buf+128*3);
 }
-
 
 #include "graphics.h"
 
-class Player {
-  byte x=8,y=8;
-  public:
-    void update(){
-      if(gb.buttons.repeat(BTN_RIGHT,0)){
-        x++;
-      }
-      if(gb.buttons.repeat(BTN_LEFT,0)){
-        x--;
-      }
-      if(gb.buttons.repeat(BTN_UP,0)){
-        y--;
-      }
-      if(gb.buttons.repeat(BTN_DOWN,0)){
-        y++;
-      }
-      sprite_xor(sprite_player,x,y);
-      moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
-    }
-};
-
-void setup() {
+void setup(){
   // put your setup code here, to run once:
   gb.begin();
   gb.setFrameRate(40);
@@ -65,24 +103,24 @@ void setup() {
   gb.display.println(F("loading card..."));
   gb.display.update();
 
-  if(sd.init(gb.display.getBuffer(),SPISPEED_VERYHIGH)!=NO_ERROR){
+  if(sd.init(gb.display.getBuffer(), SPISPEED_VERYHIGH) != NO_ERROR){
     gb.display.clear();
     gb.display.print(F("SD card not found."));
     gb.display.update();
     while(1);
   }
   gb.display.clear();
-  gb.display.println(F("seaching for file card..."));
+  gb.display.println(F("Searching for file card..."));
   gb.display.update();
   
-  soundfile = sd.open("SOUND.DAT",gb.display.getBuffer());
+  soundfile = sd.open("SOUND.DAT", gb.display.getBuffer());
   if(!soundfile.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open sound file."));
     gb.display.update();
     while(1);
   }
-  file = sd.open("DATA.DAT",gb.display.getBuffer());
+  file = sd.open("TEST.DAT", gb.display.getBuffer());
   if(!file.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open file."));
@@ -91,37 +129,76 @@ void setup() {
   }
   loadSong(0);
   gb.display.clear();
-  gb.display.println(F("card found"));
+  gb.display.println(F("SD card found."));
   gb.display.update();
-  
-  file.read(tilemap,0,96);
-  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET + 80),0);
-  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET + 80),1);
+
+  byte map_width;
+  file.read(&map_width, 0, 1);
+  byte map_height;
+  file.read(&map_height, 1, 1);
+  byte tilemap[map_width*map_height];
+  file.read(tilemap, 0, map_width*map_height+2);
+  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
+  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   /*
   byte buffer[11];
   buffer[10] = '\0';
-  file = sd.open("TEST.TXT",gb.display.getBuffer());
+  file = sd.open("TEST.TXT", gb.display.getBuffer());
   if(!file.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open file."));
     gb.display.update();
     while(1);
   }
-  file.read(buffer,32768 - 5,10);
+  file.read(buffer, 32768-5,10);
   gb.display.clear();
   gb.display.println(reinterpret_cast<const char*>(buffer));
-  gb.display.update();
-  while(1);*/
-}
-Player player;
-void loop() {
-  // put your main code here, to run repeatedly:
-  if(gb.update()){
-    if(!gb.sound.trackIsPlaying[0]){
-      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
-      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
+  gb.display.update();*/
+  byte player_x = 8;
+  byte player_y = 1;
+  byte player_direction = 1; // 0 = right, 1 = up, 2 = left, 3 = down
+  byte player_animation = 0;
+  int camera_x = player_x*TILE_WIDTH-LCDWIDTH/2+4;
+  camera_x = camera_x*(camera_x > 0)+(map_width*TILE_WIDTH-LCDWIDTH-camera_x)*(camera_x > map_width*TILE_WIDTH-LCDWIDTH);
+  int camera_y = player_y*TILE_HEIGHT-LCDHEIGHT/2+4;
+  camera_y = camera_y*(camera_y > 0)+(map_height*TILE_HEIGHT-LCDHEIGHT-camera_y)*(camera_y > map_height*TILE_HEIGHT-LCDHEIGHT);
+  while(1){
+    if(gb.update()){
+      if(!gb.sound.trackIsPlaying[0]){
+        gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
+        gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
+      }
+      char x_temp = -gb.buttons.repeat(BTN_LEFT, 1)*(player_x > 0)+gb.buttons.repeat(BTN_RIGHT, 1)*(player_x < map_width-1);
+      char y_temp = -gb.buttons.repeat(BTN_UP, 1)*(player_y > 0)+gb.buttons.repeat(BTN_DOWN, 1)*(player_y < map_height-1);
+      if(!x_temp != !y_temp){
+        player_direction = (1+x_temp)*(x_temp != 0);
+        player_direction = (2+y_temp)*(y_temp != 0 || player_direction == 0);
+        if(TILES_PASSABLE_END-tilemap[2+(player_y+y_temp)*map_width+player_x+x_temp] > 0){
+          for(byte i = 1; i <= 8; i++){
+            player_animation += 1*i%2;
+            player_animation *= (player_animation < 3 && i < 8);
+            camera_x = (player_x*TILE_WIDTH-LCDWIDTH/2+4+i*x_temp);
+            camera_x = camera_x*(camera_x > 0)+(map_width*TILE_WIDTH-LCDWIDTH-camera_x)*(camera_x > map_width*TILE_WIDTH-LCDWIDTH);
+            camera_y = player_y*TILE_HEIGHT-LCDHEIGHT/2+4+i*y_temp;
+            camera_y = camera_y*(camera_y > 0)+(map_height*TILE_HEIGHT-LCDHEIGHT-camera_y)*(camera_y > map_height*TILE_HEIGHT-LCDHEIGHT);
+            gb.display.clear();
+            draw_map(tilemap, camera_x, camera_y);
+            draw_player(player_x*TILE_WIDTH-camera_x+i*x_temp, player_y*TILE_WIDTH-camera_y+i*y_temp, player_direction, player_animation);
+            gb.display.update();
+            delay(10);
+          }
+          player_x += x_temp;
+          player_y += y_temp;
+        }
+      }
+      gb.display.clear();
+      draw_map(tilemap, camera_x, camera_y);
+      draw_player(player_x*TILE_WIDTH-camera_x, player_y*TILE_WIDTH-camera_y, player_direction, player_animation);
+      gb.display.update();
     }
-    drawTilemap();
-    player.update();
   }
+}
+
+void loop(){
+  // put your main code here, to run repeatedly:
 }
