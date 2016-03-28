@@ -1,190 +1,202 @@
-void sprite_and(byte data[], byte x, byte y){
+void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><sprite-byte><mask-byte><sprite-byte> etc. Mask is OR'd, the shape of the sprite, the sprite is the actual sprite, will be AND'd
+  int8_t x = xx - camX;
+  int8_t y = yy - camY;
+  
   uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + gb.display.getBuffer();
   asm volatile(
   "mov R20,%[y]\n\t"
   "ldi R17,7\n\t"
   "add R20,R17\n\t"
-  "brmi and_End\n\t"
+  "brmi sprite_masked_End\n\t"
   "cpi %[y],48\n\t"
-  "brpl and_End\n\t"
+  "brpl sprite_masked_End\n\t"
  
   "inc R20\n\t"
   "ldi R16,8\n\t"
   "andi R20,7\n\t"
   "cpi R20,0\n\t"
-  "breq and_LoopAligned\n"
-  "and_LoopStart:\n\t"
+  "breq sprite_masked_LoopAligned\n"
+  "sprite_masked_LoopStart:\n\t"
+    "push R16\n\t"
+      "ld R21,Z+\n\t"
+      
+      "tst %[x]\n\t"
+      "brmi sprite_masked_LoopSkip\n\t"
+      "cpi %[x],84\n\t"
+      "brcc sprite_masked_LoopSkip\n\t"
   
-    "tst %[x]\n\t"
-    "brmi and_LoopSkip\n\t"
-    "cpi %[x],84\n\t"
-    "brcc and_LoopSkip\n\t"
-
-    "ld R17,Z\n\t"
-    "eor R18,R18\n\t"
-    "mov R19,R20\n\t"
-    "clc\n\t"
-    "and_LoopShift:\n\t" // carry is still reset from the cpi instruction or from the dec
-      "rol R17\n\t"
-      "rol R18\n\t"
-      "dec R19\n\t"
-      "brne and_LoopShift\n\t"
-
-    "tst %[y]\n\t"
-    "brmi and_LoopSkipPart\n\t"
-   
-    "ld R19,X\n\t"
-    "and R19,R17\n\t" //
-    "st X,R19\n\t"
-  "and_LoopSkipPart:\n\t"
-
-    "cpi %[y],40\n\t"
-    "brpl and_LoopSkip\n\t"
-   
-    "ld R19,Y\n\t"
-    "and R19,R18\n\t" //
-    "st Y,R19\n\t"
-
-  "and_LoopSkip:\n\t"
-    "eor R18,R18\n\t"
-    "ldi R19,1\n\t"
-    "add R26,R19\n\t" // INC DOESN'T CHANGE CARRY!
-    "adc R27,R18\n\t"
-    "add R28,R19\n\t"
-    "adc R29,R18\n\t"
-    "add R30,R19\n\t"
-    "adc R31,R18\n\t"
-   
-    "inc %[x]\n\t"
+      "ld R17,Z\n\t"
+      "eor R18,R18\n\t"
+      "ldi R16,0xFF\n\t"
+      "mov R19,R20\n\t"
+      "clc\n\t"
+      "sprite_masked_LoopShift:\n\t" // carry is still reset from the cpi instruction or from the dec
+        "lsl R17\n\t"
+        "rol R18\n\t"
+  
+        "sec\n\t"
+        "rol R21\n\t"
+        "rol R16\n\t"
+        "dec R19\n\t"
+        "brne sprite_masked_LoopShift\n\t"
+  
+      "tst %[y]\n\t"
+      "brmi sprite_masked_LoopSkipPart\n\t"
+     
+      "ld R19,X\n\t"
+      "and R19,R21\n\t"
+      "eor R19,R17\n\t"
+      "st X,R19\n\t"
+    "sprite_masked_LoopSkipPart:\n\t"
+  
+      "cpi %[y],40\n\t"
+      "brpl sprite_masked_LoopSkip\n\t"
+     
+      "ld R19,Y\n\t"
+      "and R19,R16\n\t"
+      "eor R19,R18\n\t"
+      "st Y,R19\n\t"
+  
+    "sprite_masked_LoopSkip:\n\t"
+      
+      "ld R19,X+\n\t" // less clock cycles to just load
+      "ld R19,Y+\n\t"
+      "ld R19,Z+\n\t"
+     
+      "inc %[x]\n\t"
+    "pop R16\n\t"
     "dec R16\n\t"
-    "brne and_LoopStart\n\t"
-  "rjmp and_End\n"
-  "and_LoopAligned:\n\t"
+    "brne sprite_masked_LoopStart\n\t"
+  "rjmp sprite_masked_End\n"
+  "sprite_masked_LoopAligned:\n\t"
+    "ld R21,Z+\n\t"
+    
     "tst %[x]\n\t"
-    "brmi and_LoopAlignSkip\n\t"
+    "brmi sprite_masked_LoopAlignSkip\n\t"
  
     "cpi %[x],84\n\t"
-    "brcc and_LoopAlignSkip\n\t"
+    "brcc sprite_masked_LoopAlignSkip\n\t"
    
     "ld R17,Z\n\t"
     "ld R18,X\n\t"
-    "and R18,R17\n\t" //
+    "and R18,R21\n\t"
+    "eor R18,R17\n\t"
     "st X,R18\n\t"
-  "and_LoopAlignSkip:\n\t"
-    "ldi R18,1\n\t"
-    "add R26,R18\n\t"
-    "adc R27,R20\n\t"
-    "add R30,R18\n\t"
-    "adc R31,R20\n\t"
+  "sprite_masked_LoopAlignSkip:\n\t"
+    "ld R18,Z+\n\t" // less clock cycles to just load
+    "ld R18,X+\n\t"
+    
     "inc %[x]\n\t"
     "dec R16\n\t"
-    "brne and_LoopAligned\n"
-  "and_End:\n\t"
-  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "r" (y),[x] "r" (x):"r16","r17","r18","r19","r20");
+    "brne sprite_masked_LoopAligned\n"
+  "sprite_masked_End:\n\t"
+  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20","r21");
 }
 
-void sprite_xor(byte data[], byte x, byte y){
+void sprite_xor(byte data[], byte xx, byte yy){
+  int8_t x = xx - camX;
+  int8_t y = yy - camY;
+
   uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + gb.display.getBuffer();
   asm volatile(
   "mov R20,%[y]\n\t"
   "ldi R17,7\n\t"
   "add R20,R17\n\t"
-  "brmi xor_End\n\t"
+  "brmi sprite_xor_End\n\t"
   "cpi %[y],48\n\t"
-  "brpl xor_End\n\t"
+  "brpl sprite_xor_End\n\t"
  
   "inc R20\n\t"
   "ldi R16,8\n\t"
   "andi R20,7\n\t"
   "cpi R20,0\n\t"
-  "breq xor_LoopAligned\n"
-  "xor_LoopStart:\n\t"
+  "breq sprite_xor_LoopAligned\n"
+  "sprite_xor_LoopStart:\n\t"
   
     "tst %[x]\n\t"
-    "brmi xor_LoopSkip\n\t"
+    "brmi sprite_xor_LoopSkip\n\t"
     "cpi %[x],84\n\t"
-    "brcc xor_LoopSkip\n\t"
+    "brcc sprite_xor_LoopSkip\n\t"
 
     "ld R17,Z\n\t"
     "eor R18,R18\n\t"
     "mov R19,R20\n\t"
-    "clc\n\t"
-    "xor_LoopShift:\n\t" // carry is still reset from the cpi instruction or from the dec
-      "rol R17\n\t"
+    
+    "sprite_xor_LoopShift:\n\t"
+      "lsl R17\n\t"
       "rol R18\n\t"
       "dec R19\n\t"
-      "brne xor_LoopShift\n\t"
+      "brne sprite_xor_LoopShift\n\t"
 
     "tst %[y]\n\t"
-    "brmi xor_LoopSkipPart\n\t"
+    "brmi sprite_xor_LoopSkipPart\n\t"
    
     "ld R19,X\n\t"
     "eor R19,R17\n\t"
     "st X,R19\n\t"
-  "xor_LoopSkipPart:\n\t"
+  "sprite_xor_LoopSkipPart:\n\t"
 
     "cpi %[y],40\n\t"
-    "brpl xor_LoopSkip\n\t"
+    "brpl sprite_xor_LoopSkip\n\t"
    
     "ld R19,Y\n\t"
     "eor R19,R18\n\t"
     "st Y,R19\n\t"
 
-  "xor_LoopSkip:\n\t"
-    "eor R18,R18\n\t"
-    "ldi R19,1\n\t"
-    "add R26,R19\n\t" // INC DOESN'T CHANGE CARRY!
-    "adc R27,R18\n\t"
-    "add R28,R19\n\t"
-    "adc R29,R18\n\t"
-    "add R30,R19\n\t"
-    "adc R31,R18\n\t"
+  "sprite_xor_LoopSkip:\n\t"
+    
+    "ld R19,X+\n\t" // less clock cycles to just load
+    "ld R19,Y+\n\t"
+    "ld R19,Z+\n\t"
    
     "inc %[x]\n\t"
     "dec R16\n\t"
-    "brne xor_LoopStart\n\t"
-  "rjmp xor_End\n"
-  "xor_LoopAligned:\n\t"
+    "brne sprite_xor_LoopStart\n\t"
+  "rjmp sprite_xor_End\n"
+  "sprite_xor_LoopAligned:\n\t"
     "tst %[x]\n\t"
-    "brmi xor_LoopAlignSkip\n\t"
+    "brmi sprite_xor_LoopAlignSkip\n\t"
  
     "cpi %[x],84\n\t"
-    "brcc xor_LoopAlignSkip\n\t"
+    "brcc sprite_xor_LoopAlignSkip\n\t"
    
     "ld R17,Z\n\t"
     "ld R18,X\n\t"
     "eor R18,R17\n\t"
     "st X,R18\n\t"
-  "xor_LoopAlignSkip:\n\t"
-    "ldi R18,1\n\t"
-    "add R26,R18\n\t"
-    "adc R27,R20\n\t"
-    "add R30,R18\n\t"
-    "adc R31,R20\n\t"
+  "sprite_xor_LoopAlignSkip:\n\t"
+    "ld R18,X+\n\t" // less clock cycles to just load
+    "ld R18,Z+\n\t"
+    
     "inc %[x]\n\t"
     "dec R16\n\t"
-    "brne xor_LoopAligned\n"
-  "xor_End:\n\t"
-  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "r" (y),[x] "r" (x):"r16","r17","r18","r19","r20");
+    "brne sprite_xor_LoopAligned\n"
+  "sprite_xor_End:\n\t"
+  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20");
 }
 
-void draw_map(const byte tilemap[], int camera_x, int camera_y){
-  byte map_width = tilemap[0];
-  byte map_height = tilemap[1];
-  for(byte y = 0; y <= 6; y++){
-    for(byte x = 0; x <= 11; x++){
-      int tile_x = camera_x/TILE_WIDTH+x;
-      int tile_y = camera_y/TILE_HEIGHT+y;
-      if(tile_x >= 0 && tile_x < map_width && tile_y >= 0 && tile_y < map_height){
-        byte tile_num = tilemap[2+tile_y*map_width+tile_x];
-        tile_num += (tile_num >= TILES_ANIMATED_START && tile_num <= TILES_ANIMATED_END)*millis()/ANIMATION_FREQUENCY%2;
-        sprite_xor(tileset_forest_pointer+tile_num*TILE_HEIGHT, x*TILE_WIDTH-camera_x%TILE_WIDTH, y*TILE_HEIGHT-camera_y%TILE_HEIGHT);
-      }
+void drawTilemap(){
+  int8_t startDdx = (-camX) / 8;
+  int8_t startDdy = (-camY) / 8;
+  int8_t maxDdx = (LCDWIDTH + 8 - 1 + camX) / 8;
+  int8_t maxDdy = (LCDHEIGHT + 8 - 1 + camY) / 8;
+  if(TILEMAP_WIDTH < maxDdx){
+      maxDdx = TILEMAP_WIDTH;
+  }
+  if(TILEMAP_HEIGHT < maxDdy){
+      maxDdy = TILEMAP_HEIGHT;
+  }
+  if(startDdx < 0){
+      startDdx = 0;
+  }
+  if(startDdy < 0){
+      startDdy = 0;
+  }
+  for(byte ddy = startDdy;ddy < maxDdy;ddy++){
+    for(byte ddx = startDdx;ddx < maxDdx;ddx++){
+      byte tile_num = tilemap[ddy*TILEMAP_WIDTH + ddx];
+      tile_num += (tile_num >= TILES_ANIMATED_START && tile_num <= TILES_ANIMATED_END)*millis()/ANIMATION_FREQUENCY%2;
+      sprite_xor(tileset_forest+tile_num*TILE_HEIGHT,ddx*8,ddy*8);
     }
   }
-}
-
-void draw_player(int x, int y, byte direction, byte animation){
-  sprite_and(maskset_player_pointer+(direction*24+animation*8), x, y);
-  sprite_xor(charset_player_pointer+(direction*24+animation*8), x, y);
 }

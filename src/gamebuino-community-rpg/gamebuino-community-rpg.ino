@@ -3,6 +3,11 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
+#define ENABLE_SOUND 0
+
+
+#define TILEMAP_WIDTH 12
+#define TILEMAP_HEIGHT 8
 #define TILE_WIDTH 8
 #define TILE_HEIGHT 8
 #define TILES_PASSABLE_END 4
@@ -11,6 +16,8 @@
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
 #define SOUNDBUFFER_OFFSET (231 * 128)
+
+#define TILEMAP_SIZE (TILEMAP_WIDTH*TILEMAP_HEIGHT)
 
 byte tileset_forest[]={
   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -41,45 +48,36 @@ byte tileset_forest[]={
   0xff,0xd7,0x6b,0xe3,0xd9,0xf5,0x69,0x95,
   0x81,0x2b,0xe6,0x57,0xeb,0xd6,0x79,0xdd,
   0xc9,0xa3,0xf5,0xdd,0xeb,0x63,0xd7,0xff };
-byte* tileset_forest_pointer = tileset_forest;
 
 byte charset_player[]={
-  0x78,0x48,0xfe,0xfe,0x7a,0xf2,0x90,0x2f,
-  0x00,0x78,0x4f,0xff,0xfd,0x79,0x08,0x04,
-  0x00,0x00,0xfe,0xce,0x7a,0xf2,0xa0,0x20,
-  0x2f,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
-  0x2c,0xbf,0xff,0x7f,0xff,0xff,0x78,0x00,
-  0x20,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
-  0x2f,0x90,0xf2,0x7a,0xfe,0xfe,0x48,0x78,
-  0x04,0x08,0x79,0xfd,0xff,0x4f,0x78,0x00,
-  0x20,0xa0,0xf2,0x7a,0xce,0xfe,0x00,0x00,
-  0x78,0xce,0xfa,0x72,0xfa,0xbe,0x2f,0x00,
-  0x78,0xff,0xfd,0x79,0xfd,0xbf,0x2c,0x00,
-  0x78,0xce,0xfa,0x72,0xfa,0xbe,0x20,0x00 };
-byte* charset_player_pointer = charset_player;
+  0x87,0x78, 0x87,0x48, 0x01,0xfe, 0x01,0xfe, 0x81,0x7a, 0x01,0xf2, 0x6f,0x90, 0xc0,0x2f,
+  0xff,0x00, 0x87,0x78, 0x80,0x4f, 0x00,0xff, 0x00,0xfd, 0x80,0x79, 0xf7,0x08, 0xfb,0x04,
+  0xff,0x00, 0xff,0x00, 0x01,0xfe, 0x01,0xce, 0x81,0x7a, 0x01,0xf2, 0x5f,0xa0, 0xdf,0x20,
+  0xc0,0x2f, 0x41,0xbe, 0x01,0xfe, 0x81,0x7e, 0x01,0xfe, 0x01,0xfe, 0x87,0x78, 0xff,0x00,
+  0xc3,0x2c, 0x40,0xbf, 0x00,0xff, 0x80,0x7f, 0x00,0xff, 0x00,0xff, 0x87,0x78, 0xff,0x00,
+  0xdf,0x20, 0x41,0xbe, 0x01,0xfe, 0x81,0x7e, 0x01,0xfe, 0x01,0xfe, 0x87,0x78, 0xff,0x00,
+  0xc0,0x2f, 0x6f,0x90, 0x01,0xf2, 0x81,0x7a, 0x01,0xfe, 0x01,0xfe, 0x87,0x48, 0x87,0x78,
+  0xfb,0x04, 0xf7,0x08, 0x80,0x79, 0x00,0xfd, 0x00,0xff, 0x80,0x4f, 0x87,0x78, 0xff,0x00,
+  0xdf,0x20, 0x5f,0xa0, 0x01,0xf2, 0x81,0x7a, 0x01,0xce, 0x01,0xfe, 0xff,0x00, 0xff,0x00,
+  0x87,0x78, 0x01,0xce, 0x01,0xfa, 0x81,0x72, 0x01,0xfa, 0x41,0xbe, 0xc0,0x2f, 0xff,0x00,
+  0x87,0x78, 0x00,0xff, 0x00,0xfd, 0x80,0x79, 0x00,0xfd, 0x40,0xbf, 0xc3,0x2c, 0xff,0x00,
+  0x87,0x78, 0x01,0xce, 0x01,0xfa, 0x81,0x72, 0x01,0xfa, 0x41,0xbe, 0xdf,0x20, 0xff,0x00};
 
-byte maskset_player[]={
-  0x78,0x78,0xfe,0xfe,0x7e,0xfe,0x90,0x3f,
-  0x00,0x78,0x7f,0xff,0xff,0x7f,0x08,0x04,
-  0x00,0x00,0xfe,0xfe,0x7e,0xfe,0xa0,0x20,
-  0x3f,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
-  0x3c,0xbf,0xff,0x7f,0xff,0xff,0x78,0x00,
-  0x20,0xbe,0xfe,0x7e,0xfe,0xfe,0x78,0x00,
-  0x3f,0x90,0xfe,0x7e,0xfe,0xfe,0x78,0x78,
-  0x04,0x08,0x7f,0xff,0xff,0x7f,0x78,0x00,
-  0x20,0xa0,0xfe,0x7e,0xfe,0xfe,0x00,0x00,
-  0x78,0xfe,0xfe,0x7e,0xfe,0xbe,0x3f,0x00,
-  0x78,0xff,0xff,0x7f,0xff,0xbf,0x3c,0x00,
-  0x78,0xfe,0xfe,0x7e,0xfe,0xbe,0x20,0x00 };
-byte* maskset_player_pointer = maskset_player;
 
 Gamebuino gb;
 
+byte camX = 0;
+byte camY = 0;
+byte tilemap[TILEMAP_SIZE];
+#include "graphics.h"
 GB_Fat sd;
 GB_File file;
 GB_File soundfile;
 
+
 void loadSong(uint16_t num){
+  gb.sound.stopTrack(0);
+  gb.sound.stopTrack(1);
   byte *buf = gb.display.getBuffer();
   soundfile.read(buf, num*1024, 512);
   write_flash_page((const char*)SOUNDBUFFER_OFFSET, buf);
@@ -93,7 +91,48 @@ void loadSong(uint16_t num){
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), buf+128*3);
 }
 
-#include "graphics.h"
+void moveCam(int8_t x,int8_t y){
+  if(x < 0){
+    camX = 0;
+  }else if(x > (TILEMAP_WIDTH*8) - LCDWIDTH){
+    camX = (TILEMAP_WIDTH*8) - LCDWIDTH;
+  }else{
+    camX = x;
+  }
+  if(y < 0){
+    camY = 0;
+  }else if(y > (TILEMAP_HEIGHT*8) - LCDHEIGHT){
+    camY = (TILEMAP_HEIGHT*8) - LCDHEIGHT;
+  }else{
+    camY = y;
+  }
+}
+
+
+class Player {
+  uint8_t x=0,y=0;
+  byte direction = 1; // 0 = right, 1 = up, 2 = left, 3 = down
+  byte animation = 0;
+  public:
+    void update(){
+      char x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
+      char y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
+      if(x_temp || y_temp){
+        direction = (1+x_temp)*(x_temp != 0);
+        direction = (2+y_temp)*(y_temp != 0 || direction == 0);
+        if(true || TILES_PASSABLE_END-tilemap[(y+y_temp)*TILEMAP_WIDTH+x+x_temp] > 0){
+          moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
+          x += x_temp;
+          y += y_temp;
+          animation = !animation;
+        }
+      }
+    }
+    void draw(){
+      sprite_masked(charset_player+(direction*24*2+animation*8*2), x, y);
+    }
+};
+Player player;
 
 void setup(){
   // put your setup code here, to run once:
@@ -132,12 +171,10 @@ void setup(){
   gb.display.println(F("SD card found."));
   gb.display.update();
 
-  byte map_width;
-  file.read(&map_width, 0, 1);
-  byte map_height;
-  file.read(&map_height, 1, 1);
-  byte tilemap[map_width*map_height];
-  file.read(tilemap, 0, map_width*map_height+2);
+  file.read(tilemap, 2, TILEMAP_SIZE);
+  for(byte i = 0;i < 12;i++){
+    tilemap[i] = 0;
+  }
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   /*
@@ -153,52 +190,20 @@ void setup(){
   file.read(buffer, 32768-5,10);
   gb.display.clear();
   gb.display.println(reinterpret_cast<const char*>(buffer));
-  gb.display.update();*/
-  byte player_x = 8;
-  byte player_y = 1;
-  byte player_direction = 1; // 0 = right, 1 = up, 2 = left, 3 = down
-  byte player_animation = 0;
-  int camera_x = player_x*TILE_WIDTH-LCDWIDTH/2+4;
-  camera_x = camera_x*(camera_x > 0)+(map_width*TILE_WIDTH-LCDWIDTH-camera_x)*(camera_x > map_width*TILE_WIDTH-LCDWIDTH);
-  int camera_y = player_y*TILE_HEIGHT-LCDHEIGHT/2+4;
-  camera_y = camera_y*(camera_y > 0)+(map_height*TILE_HEIGHT-LCDHEIGHT-camera_y)*(camera_y > map_height*TILE_HEIGHT-LCDHEIGHT);
-  while(1){
-    if(gb.update()){
-      if(!gb.sound.trackIsPlaying[0]){
-        gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
-        gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
-      }
-      char x_temp = -gb.buttons.repeat(BTN_LEFT, 1)*(player_x > 0)+gb.buttons.repeat(BTN_RIGHT, 1)*(player_x < map_width-1);
-      char y_temp = -gb.buttons.repeat(BTN_UP, 1)*(player_y > 0)+gb.buttons.repeat(BTN_DOWN, 1)*(player_y < map_height-1);
-      if(!x_temp != !y_temp){
-        player_direction = (1+x_temp)*(x_temp != 0);
-        player_direction = (2+y_temp)*(y_temp != 0 || player_direction == 0);
-        if(TILES_PASSABLE_END-tilemap[2+(player_y+y_temp)*map_width+player_x+x_temp] > 0){
-          for(byte i = 1; i <= 8; i++){
-            player_animation += 1*i%2;
-            player_animation *= (player_animation < 3 && i < 8);
-            camera_x = (player_x*TILE_WIDTH-LCDWIDTH/2+4+i*x_temp);
-            camera_x = camera_x*(camera_x > 0)+(map_width*TILE_WIDTH-LCDWIDTH-camera_x)*(camera_x > map_width*TILE_WIDTH-LCDWIDTH);
-            camera_y = player_y*TILE_HEIGHT-LCDHEIGHT/2+4+i*y_temp;
-            camera_y = camera_y*(camera_y > 0)+(map_height*TILE_HEIGHT-LCDHEIGHT-camera_y)*(camera_y > map_height*TILE_HEIGHT-LCDHEIGHT);
-            gb.display.clear();
-            draw_map(tilemap, camera_x, camera_y);
-            draw_player(player_x*TILE_WIDTH-camera_x+i*x_temp, player_y*TILE_WIDTH-camera_y+i*y_temp, player_direction, player_animation);
-            gb.display.update();
-            delay(10);
-          }
-          player_x += x_temp;
-          player_y += y_temp;
-        }
-      }
-      gb.display.clear();
-      draw_map(tilemap, camera_x, camera_y);
-      draw_player(player_x*TILE_WIDTH-camera_x, player_y*TILE_WIDTH-camera_y, player_direction, player_animation);
-      gb.display.update();
-    }
-  }
+  gb.display.update();while(1);*/
 }
 
 void loop(){
   // put your main code here, to run repeatedly:
+  if(gb.update()){
+    #if ENABLE_SOUND
+    if(!gb.sound.trackIsPlaying[0]){
+      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
+      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
+    }
+    #endif
+    player.update();
+    drawTilemap();
+    player.draw();
+  }
 }
