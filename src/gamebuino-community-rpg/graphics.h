@@ -17,54 +17,54 @@ void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><spri
   "cpi R20,0\n\t"
   "breq sprite_masked_LoopAligned\n"
   "sprite_masked_LoopStart:\n\t"
-    "push R16\n\t"
-      "ld R21,Z+\n\t"
-      
-      "tst %[x]\n\t"
-      "brmi sprite_masked_LoopSkip\n\t"
-      "cpi %[x],84\n\t"
-      "brcc sprite_masked_LoopSkip\n\t"
   
-      "ld R17,Z\n\t"
-      "eor R18,R18\n\t"
-      "ldi R16,0xFF\n\t"
-      "mov R19,R20\n\t"
-      "clc\n\t"
-      "sprite_masked_LoopShift:\n\t" // carry is still reset from the cpi instruction or from the dec
-        "lsl R17\n\t"
-        "rol R18\n\t"
-  
-        "sec\n\t"
-        "rol R21\n\t"
-        "rol R16\n\t"
-        "dec R19\n\t"
-        "brne sprite_masked_LoopShift\n\t"
-  
-      "tst %[y]\n\t"
-      "brmi sprite_masked_LoopSkipPart\n\t"
-     
-      "ld R19,X\n\t"
-      "and R19,R21\n\t"
-      "eor R19,R17\n\t"
-      "st X,R19\n\t"
-    "sprite_masked_LoopSkipPart:\n\t"
-  
-      "cpi %[y],40\n\t"
-      "brpl sprite_masked_LoopSkip\n\t"
-     
-      "ld R19,Y\n\t"
-      "and R19,R16\n\t"
-      "eor R19,R18\n\t"
-      "st Y,R19\n\t"
-  
-    "sprite_masked_LoopSkip:\n\t"
-      
-      "ld R19,X+\n\t" // less clock cycles to just load
-      "ld R19,Y+\n\t"
-      "ld R19,Z+\n\t"
-     
-      "inc %[x]\n\t"
-    "pop R16\n\t"
+    "ld R21,Z+\n\t"
+    
+    "tst %[x]\n\t"
+    "brmi sprite_masked_LoopSkip\n\t"
+    "cpi %[x],84\n\t"
+    "brcc sprite_masked_LoopSkip\n\t"
+
+    "ld R17,Z\n\t"
+    "clr R15\n\t"
+    "ldi R18,0xFF\n\t"
+    "mov R19,R20\n\t"
+    "clc\n\t"
+    "sprite_masked_LoopShift:\n\t" // carry is still reset from the cpi instruction or from the dec
+      "lsl R17\n\t"
+      "rol R15\n\t"
+
+      "sec\n\t"
+      "rol R21\n\t"
+      "rol R18\n\t"
+      "dec R19\n\t"
+      "brne sprite_masked_LoopShift\n\t"
+
+    "tst %[y]\n\t"
+    "brmi sprite_masked_LoopSkipPart\n\t"
+   
+    "ld R19,X\n\t"
+    "and R19,R21\n\t"
+    "eor R19,R17\n\t"
+    "st X,R19\n\t"
+  "sprite_masked_LoopSkipPart:\n\t"
+
+    "cpi %[y],40\n\t"
+    "brpl sprite_masked_LoopSkip\n\t"
+   
+    "ld R19,Y\n\t"
+    "and R19,R18\n\t"
+    "eor R19,R15\n\t"
+    "st Y,R19\n\t"
+
+  "sprite_masked_LoopSkip:\n\t"
+    
+    "ld R19,X+\n\t" // less clock cycles to just load
+    "ld R19,Y+\n\t"
+    "ld R19,Z+\n\t"
+   
+    "inc %[x]\n\t"
+
     "dec R16\n\t"
     "brne sprite_masked_LoopStart\n\t"
   "rjmp sprite_masked_End\n"
@@ -90,7 +90,7 @@ void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><spri
     "dec R16\n\t"
     "brne sprite_masked_LoopAligned\n"
   "sprite_masked_End:\n\t"
-  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20","r21");
+  ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20","r21","r15");
 }
 
 void sprite_xor(byte data[], byte xx, byte yy){
