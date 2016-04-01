@@ -1,3 +1,4 @@
+#include "defines.h"
 #include <SPI.h>
 #include <Gamebuino.h>
 #include <EEPROM.h>
@@ -10,46 +11,18 @@
 #define TILEMAP_HEIGHT 8
 #define TILE_WIDTH 8
 #define TILE_HEIGHT 8
-#define TILES_PASSABLE_END 4
-#define TILES_ANIMATED_START 4
-#define TILES_ANIMATED_END 14
+
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
 #define SOUNDBUFFER_OFFSET (231 * 128)
 
 #define TILEMAP_SIZE (TILEMAP_WIDTH*TILEMAP_HEIGHT)
 
-byte tileset_forest[]={
-  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-  0x00,0x00,0x08,0x00,0x40,0x04,0x00,0x00,
-  0x02,0x01,0x48,0x24,0x00,0x04,0x42,0x20,
-  0x00,0x24,0x0a,0x04,0x00,0x02,0x40,0x00,
-  0x00,0x40,0x10,0x60,0x00,0x40,0x20,0x00,
-  0x00,0x40,0x00,0x70,0x00,0x40,0x20,0x00,
-  0xff,0xf7,0x7b,0xf7,0xdf,0xef,0xdd,0xff,
-  0xff,0xfb,0xbd,0xfb,0xef,0xf7,0xee,0xff,
-  0xf0,0xfc,0x7e,0xf6,0xdf,0xef,0xdd,0xff,
-  0xf0,0xfc,0xbe,0xfa,0xef,0xf7,0xee,0xff,
-  0xff,0xf7,0x7b,0xf7,0xde,0xee,0xdc,0xf0,
-  0xff,0xfb,0xbd,0xfb,0xee,0xf6,0xec,0xf0,
-  0x0f,0x37,0x7b,0x77,0xdf,0xef,0xdd,0xff,
-  0x0f,0x3b,0x7d,0x7b,0xef,0xf7,0xee,0xff,
-  0xff,0xf7,0xfb,0xf7,0x5f,0x6f,0x3d,0x0f,
-  0xff,0xfb,0xfd,0xfb,0x6f,0x77,0x3e,0x0f,
-  0xf8,0xd4,0x6a,0xe2,0xd9,0xf5,0x69,0x95,
-  0x03,0x0c,0xdb,0xa5,0x8f,0x47,0xcf,0xaf,
-  0xc9,0xa3,0xf5,0xdd,0xea,0x62,0xd4,0xf8,
-  0x8f,0xdf,0x57,0x8f,0xa5,0xdb,0x0c,0x03,
-  0x00,0x60,0xd0,0xe8,0x74,0xaa,0xc2,0x61,
-  0x0e,0x1d,0x1e,0x34,0x3b,0x76,0xb9,0x9d,
-  0x81,0x2a,0xe4,0x54,0xe8,0xd0,0x60,0x00,
-  0x9a,0xb5,0x7e,0x2f,0x3a,0x17,0x1b,0x0e,
-  0xda,0x75,0xde,0xed,0x76,0xa3,0xc3,0x61,
-  0xff,0xd7,0x6b,0xe3,0xd9,0xf5,0x69,0x95,
-  0x81,0x2b,0xe6,0x57,0xeb,0xd6,0x79,0xdd,
-  0xc9,0xa3,0xf5,0xdd,0xeb,0x63,0xd7,0xff };
+byte tileset[8*32];
+byte tmpsprite[16];
+byte currentMap = TILEMAPS_DEFAULTMAP;
 
-byte charset_player[]={
+const byte charset_player[] PROGMEM  = {
   0x87,0x78, 0x87,0x48, 0x01,0xfe, 0x01,0xfe, 0x81,0x7a, 0x01,0xf2, 0x6f,0x90, 0xc0,0x2f,
   0xff,0x00, 0x87,0x78, 0x80,0x4f, 0x00,0xff, 0x00,0xfd, 0x80,0x79, 0xf7,0x08, 0xfb,0x04,
   0xff,0x00, 0xff,0x00, 0x01,0xfe, 0x01,0xce, 0x81,0x7a, 0x01,0xf2, 0x5f,0xa0, 0xdf,0x20,
@@ -69,9 +42,10 @@ Gamebuino gb;
 byte camX = 0;
 byte camY = 0;
 byte tilemap[TILEMAP_SIZE];
+byte firstAnimatedSprite;
 #include "graphics.h"
 GB_Fat sd;
-GB_File file;
+GB_File datfile;
 GB_File soundfile;
 
 
@@ -89,6 +63,54 @@ void loadSong(uint16_t num){
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), buf+128);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), buf+128*2);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), buf+128*3);
+}
+
+void loadTilemap(uint8_t num){
+  uint8_t* buf = gb.display.getBuffer();
+  uint8_t i;
+  firstAnimatedSprite = 32;
+  datfile.read(buf,DATFILE_START_TILEMAPLUT,256);
+  for(i = 0;i < 256;i++){
+    if(buf[i] == num){
+      break;
+    }
+  }
+  datfile.read(buf,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
+  uint16_t* have_sprite_buf = (uint16_t*)buf + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
+
+  memset(have_sprite_buf,0xFF,2*32);
+  for(i = 0;i < (DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);i += 2){
+    uint16_t spriteid = uint16_t(buf[i]<<8) + buf[i+1];
+    if(spriteid>=SPRITES_FIRST_ANIMATED){
+      for(num = 30;num >= 0;num-=2){
+        if(have_sprite_buf[num] == spriteid){ // we don't need it anymore!
+          tilemap[i/2] = num;
+          break;
+        }
+        if(have_sprite_buf[num] == 0xffff){
+          have_sprite_buf[num] = spriteid;
+          datfile.read(num*8 + tileset,((spriteid - SPRITES_FIRST_ANIMATED)*16) + DATFILE_START_SPRITES + (SPRITES_FIRST_ANIMATED*8),16);
+          tilemap[i/2] = num;
+          firstAnimatedSprite = num;
+          break;
+        }
+      }
+    }else{
+      for(num = 0;num < 32;num++){
+        if(have_sprite_buf[num] == spriteid){ // we don't need it anymore!
+          tilemap[i/2] = num;
+          break;
+        }
+        if(have_sprite_buf[num] == 0xffff){
+          have_sprite_buf[num] = spriteid;
+          datfile.read(num*8 + tileset,(spriteid*8) + DATFILE_START_SPRITES,8);
+          tilemap[i/2] = num;
+          Serial.println(spriteid);
+          break;
+        }
+      }
+    }
+  }
 }
 
 void moveCam(int8_t x,int8_t y){
@@ -110,26 +132,53 @@ void moveCam(int8_t x,int8_t y){
 
 
 class Player {
-  uint8_t x=0,y=0;
+  int8_t x=0,y=0;
   byte direction = 1; // 0 = right, 1 = up, 2 = left, 3 = down
   byte animation = 0;
   public:
-    void update(){
-      char x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
-      char y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
+    bool update(){
+      int8_t x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
+      int8_t y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
       if(x_temp || y_temp){
         direction = (1+x_temp)*(x_temp != 0);
         direction = (2+y_temp)*(y_temp != 0 || direction == 0);
-        if(true || TILES_PASSABLE_END-tilemap[(y+y_temp)*TILEMAP_WIDTH+x+x_temp] > 0){
-          moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
+        if(true){
+          focusCam();
           x += x_temp;
-          y += y_temp;
+          if(x < 0){
+            currentMap--;
+            x = (TILEMAP_WIDTH*8) - 8;
+            return false;
+          }
+          if(x > (TILEMAP_WIDTH*8) - 8){
+            currentMap++;
+            x = 0;
+            return false;
+          }
+          y += y_temp; // below here else diagonal movements may screw up while switching stuff
+          if(y < 0){
+            currentMap -= DATFILE_TILEMAPS_WIDTH;
+            y = (TILEMAP_HEIGHT*8) - 8;
+            return false;
+          }
+          if(y > (TILEMAP_HEIGHT*8) - 8){
+            currentMap += DATFILE_TILEMAPS_WIDTH;
+            y = 0;
+            return false;
+          }
           animation = !animation;
         }
       }
+      return true;
+    }
+    void focusCam(){
+      moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
     }
     void draw(){
-      sprite_masked(charset_player+(direction*24*2+animation*8*2), x, y);
+      for(byte i = 0;i < 16;i++){
+        tmpsprite[i] = pgm_read_byte(charset_player+(direction*24*2+animation*8*2)+i);
+      }
+      sprite_masked(tmpsprite, x, y);
     }
 };
 Player player;
@@ -159,38 +208,22 @@ void setup(){
     gb.display.update();
     while(1);
   }
-  file = sd.open("TEST.DAT", gb.display.getBuffer());
-  if(!file.exists()){
+  datfile = sd.open("DATA.DAT", gb.display.getBuffer());
+  if(!datfile.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open file."));
     gb.display.update();
     while(1);
   }
   loadSong(0);
+  loadTilemap(currentMap);
   gb.display.clear();
   gb.display.println(F("SD card found."));
   gb.display.update();
 
-  file.read(tilemap, 2, TILEMAP_SIZE);
-  for(byte i = 0;i < 12;i++){
-    tilemap[i] = 0;
-  }
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
-  /*
-  byte buffer[11];
-  buffer[10] = '\0';
-  file = sd.open("TEST.TXT", gb.display.getBuffer());
-  if(!file.exists()){
-    gb.display.clear();
-    gb.display.print(F("Couldn't open file."));
-    gb.display.update();
-    while(1);
-  }
-  file.read(buffer, 32768-5,10);
-  gb.display.clear();
-  gb.display.println(reinterpret_cast<const char*>(buffer));
-  gb.display.update();while(1);*/
+  
 }
 
 void loop(){
@@ -202,8 +235,12 @@ void loop(){
       gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
     }
     #endif
-    player.update();
-    drawTilemap();
-    player.draw();
+    if(player.update()){
+      drawTilemap();
+      player.draw();
+    }else{
+      loadTilemap(currentMap);
+      player.focusCam();
+    }
   }
 }

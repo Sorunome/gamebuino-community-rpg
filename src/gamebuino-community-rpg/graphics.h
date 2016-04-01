@@ -195,8 +195,8 @@ void drawTilemap(){
   for(byte ddy = startDdy;ddy < maxDdy;ddy++){
     for(byte ddx = startDdx;ddx < maxDdx;ddx++){
       byte tile_num = tilemap[ddy*TILEMAP_WIDTH + ddx];
-      tile_num += (tile_num >= TILES_ANIMATED_START && tile_num <= TILES_ANIMATED_END)*millis()/ANIMATION_FREQUENCY%2;
-      sprite_xor(tileset_forest+tile_num*TILE_HEIGHT,ddx*8,ddy*8);
+      tile_num += (tile_num >= firstAnimatedSprite)*millis()/ANIMATION_FREQUENCY%2;
+      sprite_xor(tileset+tile_num*TILE_HEIGHT,ddx*8,ddy*8);
     }
   }
 }
