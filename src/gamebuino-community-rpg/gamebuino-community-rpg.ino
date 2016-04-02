@@ -11,6 +11,9 @@
 #define TILEMAP_HEIGHT 8
 #define TILE_WIDTH 8
 #define TILE_HEIGHT 8
+#define FLAG_TILE_SCREENEND 0
+#define FLAG_TILE_WALKABLE 1
+#define FLAG_TILE_WALL 2
 
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
@@ -20,6 +23,7 @@
 
 byte tileset[8*TILEMAPS_SPRITESPACE];
 byte tmpsprite[16];
+byte walksprites[TILEMAPS_SPRITESPACE];
 byte currentMap = TILEMAPS_DEFAULTMAP;
 
 const byte charset_player[] PROGMEM  = {
@@ -80,6 +84,7 @@ void loadTilemap(uint8_t num){
 
   memset(have_sprite_buf,0xFF,2*TILEMAPS_SPRITESPACE);
   uint16_t* tmptilemapbuf = (uint16_t*)buf;
+  byte* tmpsprite = (uint8_t*)have_sprite_buf + (2*TILEMAPS_SPRITESPACE);
   for(i = 0;i < TILEMAP_SIZE;i ++){
     if(tmptilemapbuf[i]>=SPRITES_FIRST_ANIMATED){
       for(num = TILEMAPS_SPRITESPACE-2;num >= 0;num-=2){
@@ -89,7 +94,9 @@ void loadTilemap(uint8_t num){
         }
         if(have_sprite_buf[num] == 0xffff){
           have_sprite_buf[num] = tmptilemapbuf[i];
-          datfile.read(num*8 + tileset,((tmptilemapbuf[i] - SPRITES_FIRST_ANIMATED)*16) + DATFILE_START_SPRITES + (SPRITES_FIRST_ANIMATED*8),16);
+          datfile.read(tmpsprite,((tmptilemapbuf[i] - SPRITES_FIRST_ANIMATED)*17) + DATFILE_START_SPRITES + (SPRITES_FIRST_ANIMATED*9),17);
+          walksprites[num] = tmpsprite[0];
+          memcpy(num*8 + tileset,tmpsprite+1,16);
           tilemap[i] = num;
           firstAnimatedSprite = num;
           break;
@@ -103,13 +110,73 @@ void loadTilemap(uint8_t num){
         }
         if(have_sprite_buf[num] == 0xffff){
           have_sprite_buf[num] = tmptilemapbuf[i];
-          datfile.read(num*8 + tileset,(tmptilemapbuf[i]*8) + DATFILE_START_SPRITES,8);
+          datfile.read(tmpsprite,(tmptilemapbuf[i]*9) + DATFILE_START_SPRITES,9);
+          walksprites[num] = tmpsprite[0];
+          memcpy(num*8 + tileset,tmpsprite+1,8);
           tilemap[i] = num;
           break;
         }
       }
     }
   }
+}
+
+byte getTileAt(int8_t x,int8_t y){
+  return tilemap[(x / 8) + ((y/8) * TILEMAP_WIDTH)];
+}
+byte getFlagAt(int8_t x,int8_t y){
+  byte tmp = walksprites[getTileAt(x,y)];
+  return 1 + (((tmp >> ((x%8 < 4) + 2*(y%8 < 4))) & 0x01)*((tmp >> 4)+1));
+}
+byte getWalkInfo(byte x,byte y,byte w,byte h,int8_t dx,int8_t dy){
+  byte tmp;
+  w--;
+  h--;
+  if(dx){
+    x += dx;
+    if(dx > 0){
+      if(x+w >= TILEMAP_WIDTH*8){
+        return FLAG_TILE_SCREENEND;
+      }
+      tmp = getFlagAt(x+w,y);
+      if(tmp <= FLAG_TILE_WALKABLE){
+        return getFlagAt(x+w,y+h);
+      }
+      return tmp;
+    }else{
+      if(x < 0){
+        return FLAG_TILE_SCREENEND;
+      }
+      tmp = getFlagAt(x,y);
+      if(tmp <= FLAG_TILE_WALKABLE){
+        return getFlagAt(x,y+h);
+      }
+      return tmp;
+    }
+  }
+  if(dy){
+    y += dy;
+    if(dy > 0){
+      if(y+h >= TILEMAP_HEIGHT*8){
+        return FLAG_TILE_SCREENEND;
+      }
+      tmp = getFlagAt(x,y+h);
+      if(tmp <= FLAG_TILE_WALKABLE){
+        return getFlagAt(x+w,y+h);
+      }
+      return tmp;
+    }else{
+      if(y < 0){
+        return FLAG_TILE_SCREENEND;
+      }
+      tmp = getFlagAt(x,y);
+      if(tmp <= FLAG_TILE_WALKABLE){
+        return getFlagAt(x+w,y);
+      }
+      return tmp;
+    }
+  }
+  return FLAG_TILE_WALKABLE;
 }
 
 void moveCam(int8_t x,int8_t y){
@@ -141,7 +208,7 @@ class Player {
       if(x_temp || y_temp){
         direction = (1+x_temp)*(x_temp != 0);
         direction = (2+y_temp)*(y_temp != 0 || direction == 0);
-        if(true){
+        if(getWalkInfo(x+2,y+4,4,4,x_temp,0) <= FLAG_TILE_WALKABLE){
           focusCam();
           x += x_temp;
           if(x < 0){
@@ -154,6 +221,8 @@ class Player {
             x = 0;
             return false;
           }
+        }
+        if(getWalkInfo(x+2,y+4,4,4,0,y_temp) <= FLAG_TILE_WALKABLE){
           y += y_temp; // below here else diagonal movements may screw up while switching stuff
           if(y < 0){
             currentMap -= DATFILE_TILEMAPS_WIDTH;
