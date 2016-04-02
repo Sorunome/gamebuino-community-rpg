@@ -131,8 +131,8 @@ void moveCam(int8_t x,int8_t y){
 
 
 class Player {
-  int8_t x=0,y=0;
-  byte direction = 1; // 0 = right, 1 = up, 2 = left, 3 = down
+  int8_t x=16,y=16;
+  byte direction = 3; // 0 = right, 1 = up, 2 = left, 3 = down
   byte animation = 0;
   public:
     bool update(){
@@ -165,7 +165,7 @@ class Player {
             y = 0;
             return false;
           }
-          animation = !animation;
+          animation = millis()/ANIMATION_FREQUENCY%2;
         }
       }
       return true;
