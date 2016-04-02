@@ -14,6 +14,11 @@
 #define FLAG_TILE_SCREENEND 0
 #define FLAG_TILE_WALKABLE 1
 #define FLAG_TILE_WALL 2
+#define FLAG_TILE_WATER 3
+#define FLAG_TILE_FALL 4
+
+#define PLAYER_STATUS_IDLE 0
+#define PLAYER_STATUS_FALL 1
 
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
@@ -201,43 +206,65 @@ class Player {
   int8_t x=16,y=16;
   byte direction = 3; // 0 = right, 1 = up, 2 = left, 3 = down
   byte animation = 0;
+  byte status = PLAYER_STATUS_IDLE;
   public:
     bool update(){
-      int8_t x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
-      int8_t y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
-      if(x_temp || y_temp){
-        direction = (1+x_temp)*(x_temp != 0);
-        direction = (2+y_temp)*(y_temp != 0 || direction == 0);
-        if(getWalkInfo(x+2,y+4,4,4,x_temp,0) <= FLAG_TILE_WALKABLE){
-          focusCam();
-          x += x_temp;
-          if(x < 0){
-            currentMap--;
-            x = (TILEMAP_WIDTH*8) - 8;
-            return false;
+      byte flag;
+      if(status == PLAYER_STATUS_IDLE){
+        int8_t x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
+        int8_t y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
+        if(x_temp || y_temp){
+          direction = (1+x_temp)*(x_temp != 0);
+          direction = (2+y_temp)*(y_temp != 0 || direction == 0);
+          if(getWalkInfo(x+2,y+4,4,4,x_temp,0) <= FLAG_TILE_WALKABLE){
+            focusCam();
+            x += x_temp;
+            if(x < 0){
+              currentMap--;
+              x = (TILEMAP_WIDTH*8) - 8;
+              return false;
+            }
+            if(x > (TILEMAP_WIDTH*8) - 8){
+              currentMap++;
+              x = 0;
+              return false;
+            }
           }
-          if(x > (TILEMAP_WIDTH*8) - 8){
-            currentMap++;
-            x = 0;
-            return false;
+          flag = getWalkInfo(x+2,y+4,4,4,0,y_temp);
+          if(flag <= FLAG_TILE_WALKABLE){
+            focusCam();
+            y += y_temp; // below here else diagonal movements may screw up while switching stuff
+            if(y < 0){
+              currentMap -= DATFILE_TILEMAPS_WIDTH;
+              y = (TILEMAP_HEIGHT*8) - 8;
+              return false;
+            }
+            if(y > (TILEMAP_HEIGHT*8) - 8){
+              currentMap += DATFILE_TILEMAPS_WIDTH;
+              y = 0;
+              return false;
+            }
+            animation = millis()/ANIMATION_FREQUENCY%2;
+          }
+          if(flag == FLAG_TILE_FALL && y_temp > 0){
+            status = PLAYER_STATUS_FALL;
           }
         }
-        if(getWalkInfo(x+2,y+4,4,4,0,y_temp) <= FLAG_TILE_WALKABLE){
-          y += y_temp; // below here else diagonal movements may screw up while switching stuff
-          if(y < 0){
-            currentMap -= DATFILE_TILEMAPS_WIDTH;
-            y = (TILEMAP_HEIGHT*8) - 8;
-            return false;
-          }
-          if(y > (TILEMAP_HEIGHT*8) - 8){
-            currentMap += DATFILE_TILEMAPS_WIDTH;
-            y = 0;
-            return false;
-          }
-          animation = millis()/ANIMATION_FREQUENCY%2;
-        }
+        return true;
       }
-      return true;
+      if(status == PLAYER_STATUS_FALL){
+        y++;
+        if(y > (TILEMAP_HEIGHT*8) - 8){
+          currentMap += DATFILE_TILEMAPS_WIDTH;
+          y = 0;
+          return false;
+        }
+        if(getWalkInfo(x+2,y,4,4,0,1) <= FLAG_TILE_WALKABLE && getWalkInfo(x+2,y+4,4,4,0,1) <= FLAG_TILE_WALKABLE){
+          status = PLAYER_STATUS_IDLE;
+        }
+        focusCam();
+        return true;
+      }
     }
     void focusCam(){
       moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
