@@ -18,7 +18,7 @@
 
 #define TILEMAP_SIZE (TILEMAP_WIDTH*TILEMAP_HEIGHT)
 
-byte tileset[8*32];
+byte tileset[8*TILEMAPS_SPRITESPACE];
 byte tmpsprite[16];
 byte currentMap = TILEMAPS_DEFAULTMAP;
 
@@ -68,7 +68,7 @@ void loadSong(uint16_t num){
 void loadTilemap(uint8_t num){
   uint8_t* buf = gb.display.getBuffer();
   uint8_t i;
-  firstAnimatedSprite = 32;
+  firstAnimatedSprite = TILEMAPS_SPRITESPACE;
   datfile.read(buf,DATFILE_START_TILEMAPLUT,256);
   for(i = 0;i < 256;i++){
     if(buf[i] == num){
@@ -78,34 +78,33 @@ void loadTilemap(uint8_t num){
   datfile.read(buf,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
   uint16_t* have_sprite_buf = (uint16_t*)buf + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
 
-  memset(have_sprite_buf,0xFF,2*32);
-  for(i = 0;i < (DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);i += 2){
-    uint16_t spriteid = uint16_t(buf[i]<<8) + buf[i+1];
-    if(spriteid>=SPRITES_FIRST_ANIMATED){
-      for(num = 30;num >= 0;num-=2){
-        if(have_sprite_buf[num] == spriteid){ // we don't need it anymore!
-          tilemap[i/2] = num;
+  memset(have_sprite_buf,0xFF,2*TILEMAPS_SPRITESPACE);
+  uint16_t* tmptilemapbuf = (uint16_t*)buf;
+  for(i = 0;i < TILEMAP_SIZE;i ++){
+    if(tmptilemapbuf[i]>=SPRITES_FIRST_ANIMATED){
+      for(num = TILEMAPS_SPRITESPACE-2;num >= 0;num-=2){
+        if(have_sprite_buf[num] == tmptilemapbuf[i]){ // we don't need it anymore!
+          tilemap[i] = num;
           break;
         }
         if(have_sprite_buf[num] == 0xffff){
-          have_sprite_buf[num] = spriteid;
-          datfile.read(num*8 + tileset,((spriteid - SPRITES_FIRST_ANIMATED)*16) + DATFILE_START_SPRITES + (SPRITES_FIRST_ANIMATED*8),16);
-          tilemap[i/2] = num;
+          have_sprite_buf[num] = tmptilemapbuf[i];
+          datfile.read(num*8 + tileset,((tmptilemapbuf[i] - SPRITES_FIRST_ANIMATED)*16) + DATFILE_START_SPRITES + (SPRITES_FIRST_ANIMATED*8),16);
+          tilemap[i] = num;
           firstAnimatedSprite = num;
           break;
         }
       }
     }else{
-      for(num = 0;num < 32;num++){
-        if(have_sprite_buf[num] == spriteid){ // we don't need it anymore!
-          tilemap[i/2] = num;
+      for(num = 0;num < TILEMAPS_SPRITESPACE;num++){
+        if(have_sprite_buf[num] == tmptilemapbuf[i]){ // we don't need it anymore!
+          tilemap[i] = num;
           break;
         }
         if(have_sprite_buf[num] == 0xffff){
-          have_sprite_buf[num] = spriteid;
-          datfile.read(num*8 + tileset,(spriteid*8) + DATFILE_START_SPRITES,8);
-          tilemap[i/2] = num;
-          Serial.println(spriteid);
+          have_sprite_buf[num] = tmptilemapbuf[i];
+          datfile.read(num*8 + tileset,(tmptilemapbuf[i]*8) + DATFILE_START_SPRITES,8);
+          tilemap[i] = num;
           break;
         }
       }
