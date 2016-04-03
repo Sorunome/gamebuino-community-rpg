@@ -6,7 +6,6 @@
 
 #define ENABLE_SOUND 0
 
-
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
 #define TILE_WIDTH 8
@@ -23,6 +22,7 @@
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
 #define SOUNDBUFFER_OFFSET (231 * 128)
+#define MAX_NUM_ENEMIES 10
 
 #define TILEMAP_SIZE (TILEMAP_WIDTH*TILEMAP_HEIGHT)
 
@@ -45,14 +45,27 @@ const byte charset_player[] PROGMEM  = {
   0x87,0x78, 0x00,0xff, 0x00,0xfd, 0x80,0x79, 0x00,0xfd, 0x40,0xbf, 0xc3,0x2c, 0xff,0x00,
   0x87,0x78, 0x01,0xce, 0x01,0xfa, 0x81,0x72, 0x01,0xfa, 0x41,0xbe, 0xdf,0x20, 0xff,0x00};
 
+const byte charset_enemy[] PROGMEM = {
+  0x00,0xFF, 0x00,0xFF, 0x00,0xFF, 0x00,0xFF, 0x00,0xFF, 0x00,0xFF, 0x00,0xFF, 0x00,0xFF
+};
+
 
 Gamebuino gb;
+
+void loadSong(uint16_t num);
+void loadTilemap(uint8_t num);
+byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy);
+void moveCam(int8_t x,int8_t y);
+
 
 byte camX = 0;
 byte camY = 0;
 byte tilemap[TILEMAP_SIZE];
 byte firstAnimatedSprite;
 #include "graphics.h"
+#include "enemies.h"
+#include "player.h"
+
 GB_Fat sd;
 GB_File datfile;
 GB_File soundfile;
@@ -77,6 +90,10 @@ void loadSong(uint16_t num){
 void loadTilemap(uint8_t num){
   uint8_t* buf = gb.display.getBuffer();
   uint8_t i;
+  for(i = 0;i < MAX_NUM_ENEMIES;i++){ // delete all the enemies
+    delete enemies[i];
+    enemies[i] = NULL;
+  }
   firstAnimatedSprite = TILEMAPS_SPRITESPACE;
   datfile.read(buf,DATFILE_START_TILEMAPLUT,256);
   for(i = 0;i < 256;i++){
@@ -84,6 +101,10 @@ void loadTilemap(uint8_t num){
       break;
     }
   }
+  if(num == TILEMAP_2){
+    addEnemy(3,1);
+  }
+  
   datfile.read(buf,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
   uint16_t* have_sprite_buf = (uint16_t*)buf + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
 
@@ -133,7 +154,7 @@ byte getFlagAt(int8_t x,int8_t y){
   byte tmp = walksprites[getTileAt(x,y)];
   return 1 + (((tmp >> ((x%8 < 4) + 2*(y%8 < 4))) & 0x01)*((tmp >> 4)+1));
 }
-byte getWalkInfo(byte x,byte y,byte w,byte h,int8_t dx,int8_t dy){
+byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy){
   byte tmp;
   w--;
   h--;
@@ -171,6 +192,7 @@ byte getWalkInfo(byte x,byte y,byte w,byte h,int8_t dx,int8_t dy){
       }
       return tmp;
     }else{
+      Serial.println(y);
       if(y < 0){
         return FLAG_TILE_SCREENEND;
       }
@@ -200,83 +222,6 @@ void moveCam(int8_t x,int8_t y){
     camY = y;
   }
 }
-
-
-class Player {
-  int8_t x=16,y=16;
-  byte direction = 3; // 0 = right, 1 = up, 2 = left, 3 = down
-  byte animation = 0;
-  byte status = PLAYER_STATUS_IDLE;
-  public:
-    bool update(){
-      byte flag;
-      if(status == PLAYER_STATUS_IDLE){
-        int8_t x_temp = -gb.buttons.repeat(BTN_LEFT, 1)+gb.buttons.repeat(BTN_RIGHT, 1);
-        int8_t y_temp = -gb.buttons.repeat(BTN_UP, 1)+gb.buttons.repeat(BTN_DOWN, 1);
-        if(x_temp || y_temp){
-          direction = (1+x_temp)*(x_temp != 0);
-          direction = (2+y_temp)*(y_temp != 0 || direction == 0);
-          if(getWalkInfo(x+2,y+4,4,4,x_temp,0) <= FLAG_TILE_WALKABLE){
-            focusCam();
-            x += x_temp;
-            if(x < 0){
-              currentMap--;
-              x = (TILEMAP_WIDTH*8) - 8;
-              return false;
-            }
-            if(x > (TILEMAP_WIDTH*8) - 8){
-              currentMap++;
-              x = 0;
-              return false;
-            }
-          }
-          flag = getWalkInfo(x+2,y+4,4,4,0,y_temp);
-          if(flag <= FLAG_TILE_WALKABLE){
-            focusCam();
-            y += y_temp; // below here else diagonal movements may screw up while switching stuff
-            if(y < 0){
-              currentMap -= DATFILE_TILEMAPS_WIDTH;
-              y = (TILEMAP_HEIGHT*8) - 8;
-              return false;
-            }
-            if(y > (TILEMAP_HEIGHT*8) - 8){
-              currentMap += DATFILE_TILEMAPS_WIDTH;
-              y = 0;
-              return false;
-            }
-            animation = millis()/ANIMATION_FREQUENCY%2;
-          }
-          if(flag == FLAG_TILE_FALL && y_temp > 0){
-            status = PLAYER_STATUS_FALL;
-          }
-        }
-        return true;
-      }
-      if(status == PLAYER_STATUS_FALL){
-        y++;
-        if(y > (TILEMAP_HEIGHT*8) - 8){
-          currentMap += DATFILE_TILEMAPS_WIDTH;
-          y = 0;
-          return false;
-        }
-        if(getWalkInfo(x+2,y,4,4,0,1) <= FLAG_TILE_WALKABLE && getWalkInfo(x+2,y+4,4,4,0,1) <= FLAG_TILE_WALKABLE){
-          status = PLAYER_STATUS_IDLE;
-        }
-        focusCam();
-        return true;
-      }
-    }
-    void focusCam(){
-      moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
-    }
-    void draw(){
-      for(byte i = 0;i < 16;i++){
-        tmpsprite[i] = pgm_read_byte(charset_player+(direction*24*2+animation*8*2)+i);
-      }
-      sprite_masked(tmpsprite, x, y);
-    }
-};
-Player player;
 
 void setup(){
   // put your setup code here, to run once:
@@ -319,6 +264,7 @@ void setup(){
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   
+  //gb.display.setContrast(gb.display.contrast);
 }
 
 void loop(){
@@ -331,8 +277,15 @@ void loop(){
     }
     #endif
     if(player.update()){
+      byte i;
       drawTilemap();
       player.draw();
+      for(i = 0;i < MAX_NUM_ENEMIES;i++){
+        if(enemies[i]!=NULL){
+          enemies[i]->update();
+          enemies[i]->draw();
+        }
+      }
     }else{
       loadTilemap(currentMap);
       player.focusCam();
