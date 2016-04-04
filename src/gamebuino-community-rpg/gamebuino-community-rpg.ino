@@ -15,6 +15,7 @@
 #define FLAG_TILE_WALL 2
 #define FLAG_TILE_WATER 3
 #define FLAG_TILE_FALL 4
+#define FLAG_TILE_SCRIPT 5
 
 #define PLAYER_STATUS_IDLE 0
 #define PLAYER_STATUS_FALL 1
@@ -56,24 +57,27 @@ void loadSong(uint16_t num);
 void loadTilemap(uint8_t num);
 byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy);
 void moveCam(int8_t x,int8_t y);
+void drawScreen();
 
 
 byte camX = 0;
 byte camY = 0;
 byte tilemap[TILEMAP_SIZE];
 byte firstAnimatedSprite;
-#include "graphics.h"
-#include "enemies.h"
-#include "player.h"
-
-GB_Fat sd;
 GB_File datfile;
 GB_File soundfile;
+bool runScript(byte offset);
+#include "graphics.h"
+#include "player.h"
+#include "enemies.h"
+#include "script.h"
+
 
 
 void loadSong(uint16_t num){
   gb.sound.stopTrack(0);
   gb.sound.stopTrack(1);
+#if ENABLE_SOUND
   byte *buf = gb.display.getBuffer();
   soundfile.read(buf, num*1024, 512);
   write_flash_page((const char*)SOUNDBUFFER_OFFSET, buf);
@@ -85,6 +89,10 @@ void loadSong(uint16_t num){
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), buf+128);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), buf+128*2);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), buf+128*3);
+  
+  gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
+  gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
+#endif
 }
 
 void loadTilemap(uint8_t num){
@@ -192,7 +200,6 @@ byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy){
       }
       return tmp;
     }else{
-      Serial.println(y);
       if(y < 0){
         return FLAG_TILE_SCREENEND;
       }
@@ -225,6 +232,10 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(){
   // put your setup code here, to run once:
+  GB_Fat sd;
+  
+  Serial.begin(9600);
+  while(!Serial);
   gb.begin();
   gb.setFrameRate(40);
   gb.display.clear();
@@ -255,7 +266,7 @@ void setup(){
     gb.display.update();
     while(1);
   }
-  loadSong(0);
+  
   loadTilemap(currentMap);
   gb.display.clear();
   gb.display.println(F("SD card found."));
@@ -264,23 +275,31 @@ void setup(){
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
   gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   
+  loadSong(0);
+  
   //gb.display.setContrast(gb.display.contrast);
+}
+
+void drawScreen(){
+  gb.display.clear();
+  drawTilemap();
+  player.draw();
+  for(byte i = 0;i < MAX_NUM_ENEMIES;i++){
+    if(enemies[i]!=NULL){
+      enemies[i]->update();
+      enemies[i]->draw();
+    }
+  }
+  gb.display.update();
 }
 
 void loop(){
   // put your main code here, to run repeatedly:
   if(gb.update()){
-    #if ENABLE_SOUND
-    if(!gb.sound.trackIsPlaying[0]){
-      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
-      gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
-    }
-    #endif
     if(player.update()){
-      byte i;
       drawTilemap();
       player.draw();
-      for(i = 0;i < MAX_NUM_ENEMIES;i++){
+      for(byte i = 0;i < MAX_NUM_ENEMIES;i++){
         if(enemies[i]!=NULL){
           enemies[i]->update();
           enemies[i]->draw();
