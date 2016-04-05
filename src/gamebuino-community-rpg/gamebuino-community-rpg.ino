@@ -233,7 +233,8 @@ void moveCam(int8_t x,int8_t y){
 void setup(){
   // put your setup code here, to run once:
   GB_Fat sd;
-  
+//  Serial.begin(9600);
+//  while(!Serial);
   gb.begin();
   gb.setFrameRate(40);
   gb.display.clear();
