@@ -10,42 +10,65 @@
 #define SCRIPT_JUMP 0x09
 #define SCRIPT_JUMP_IFNOT 0x0A
 #define SCRIPT_LT 0x0B
+#define SCRIPT_ADD 0x0C
+#define SCRIPT_JUMP_IF 0x0D
+#define SCRIPT_INC 0x0E
+#define SCRIPT_DEC 0x0F
 
 #define SCRIPT_RETURN_FALSE 0xFE
 #define SCRIPT_RETURN_TRUE 0xFF
+
+/*
+  you can use i and j almost freely
+  BEWARE!!!!! If j is 0xFF (255) when calling readProg it'll re-fetch the buffer off of the sd card, it may slow stuff down
+*/
 void setScreenContrast_unsafe(byte contrast){
   gb.display.command(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
   gb.display.command(PCD8544_SETVOP | contrast);
   gb.display.command(PCD8544_FUNCTIONSET);
 }
-bool runScript(byte offset){
-  byte* buf = gb.display.getBuffer();
-  byte vars[SCRIPT_NUM_VARS];
-  byte i = 0;
-  byte j = 0;
-  uint32_t cursor;
-  datfile.read(buf,DATFILE_START_SCRIPT,42*6); // 42*6 as it fits in one byte and is devisible by six
+
+void Script::readProg(byte* dst,byte size){
+  if(j == 0xFF && cursor_loaded){
+    Serial.println("pre-read");
+    datfile.read(screenbuffer,cursor_loaded,512);
+    j = 0;
+  }
+  if(cursor_loaded == 0 || cursor < cursor_loaded || (cursor + size) > (cursor_loaded + 512)){
+    Serial.println("post-read");
+    datfile.read(screenbuffer,cursor,512);
+    cursor_loaded = cursor;
+  }
+  memcpy(dst,screenbuffer + (cursor - cursor_loaded),size);
+}
+
+bool Script::run(byte offset){
+  i = 0;
+  j = 0;
+  
+  datfile.read(screenbuffer,DATFILE_START_SCRIPT,42*6); // 42*6 as it fits in one byte and is devisible by six
   while(true){
-    if(buf[i] == 0xFF){
+    if(screenbuffer[i] == 0xFF){
       gb.display.clear();
       return true;
     }
-    if(buf[i] == offset && buf[i+1] == currentMap){
-      cursor = (uint16_t(buf[i+2])+(uint16_t(buf[i+3])<<8)+(uint32_t(buf[i+4])<<16)+(uint32_t(buf[i+5])<<24));
+    if(screenbuffer[i] == offset && screenbuffer[i+1] == currentMap){
+      cursor = (uint16_t(screenbuffer[i+2])+(uint16_t(screenbuffer[i+3])<<8)+(uint32_t(screenbuffer[i+4])<<16)+(uint32_t(screenbuffer[i+5])<<24));
       break;
     }
     i += 6;
     if(i >= 42*6){
       i = 0;
-      datfile.read(buf,DATFILE_START_SCRIPT + ((42*6)*(uint32_t)j),42*6);
+      datfile.read(screenbuffer,DATFILE_START_SCRIPT + ((42*6)*(uint32_t)j),42*6);
       j++;
     }
   }
+  j = 0xFF;
+  cursor_loaded = 0;
   drawScreen();
   while(true){
-    datfile.read(&i,cursor++,1);
-    //Serial.println("=====");
-    //Serial.println(i);
+    readProg(&i,1);
+    cursor++;
     switch(i){
       case SCRIPT_FADE_TO_WHITE:
         i = gb.display.contrast + 1;
@@ -61,41 +84,75 @@ bool runScript(byte offset){
         }
         break;
       case SCRIPT_SET_MAP:
-        datfile.read(&currentMap,cursor++,1);
+        readProg(&currentMap,1);
+        cursor++;
         loadTilemap(currentMap);
+        j = 0xFF;
         break;
       case SCRIPT_SET_PLAYER_X:
-        datfile.read((uint8_t*)&(player.x),cursor++,1);
+        readProg((uint8_t*)&(player.x),1);
+        cursor++;
+        if(player.x == -128){
+          readProg(&i,1);
+          cursor++;
+          player.x = (int8_t)vars[i];
+        }
         break;
       case SCRIPT_SET_PLAYER_Y:
-        datfile.read((uint8_t*)&(player.y),cursor++,1);
+        readProg((uint8_t*)&(player.y),1);
+        cursor++;
+        if(player.y == -128){
+          readProg(&i,1);
+          cursor++;
+          player.y = (int8_t)vars[i];
+        }
         break;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();
         break;
       case SCRIPT_UPDATE_SCREEN:
         drawScreen();
+        j = 0xFF;
         break;
       case SCRIPT_SET_VAR:
-        datfile.read(&i,cursor++,1);
-        datfile.read(&vars[i],cursor++,1);
+        readProg(&i,1);
+        cursor++;
+        readProg(&vars[i],1);
+        cursor++;
         break;
       case SCRIPT_JUMP:
-        datfile.read((uint8_t*)&cursor,cursor,1);
+        readProg((uint8_t*)&cursor,1);
         break;
       case SCRIPT_JUMP_IFNOT:
-        datfile.read(&i,cursor++,1);
-        switch(i){
-          case SCRIPT_LT:
-            datfile.read(&i,cursor++,1);
-            datfile.read(&j,cursor++,1);
-            if(vars[i] < vars[j]){
-              cursor += 4;
-              continue;
-            }
-            break;
+        if(condition()){
+          cursor += 4;
+          continue;
         }
-        datfile.read((uint8_t*)&cursor,cursor,1);
+        readProg((uint8_t*)&cursor,1);
+        break;
+      case SCRIPT_JUMP_IF:
+        if(condition()){
+          readProg((uint8_t*)&cursor,1);
+          continue;
+        }
+        cursor += 4;
+        break;
+      case SCRIPT_ADD:
+        readProg(&i,1);
+        cursor++;
+        readProg(&j,1);
+        cursor++;
+        vars[i] += vars[j];
+        break;
+      case SCRIPT_INC:
+        readProg(&i,1);
+        cursor++;
+        vars[i]++;
+        break;
+      case SCRIPT_DEC:
+        readProg(&i,1);
+        cursor++;
+        vars[i]--;
         break;
       
       case SCRIPT_RETURN_FALSE:
@@ -103,5 +160,18 @@ bool runScript(byte offset){
       case SCRIPT_RETURN_TRUE:
         return true;
     }
+  }
+}
+
+bool Script::condition(){
+  readProg(&i,1);
+  cursor++;
+  switch(i){
+    case SCRIPT_LT:
+      readProg(&i,1);
+      cursor++;
+      readProg(&j,1);
+      cursor++;
+      return vars[i] < vars[j];
   }
 }

@@ -2,7 +2,7 @@ void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><spri
   int8_t x = xx - camX;
   int8_t y = yy - camY;
   
-  uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + gb.display.getBuffer();
+  uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + screenbuffer;
   asm volatile(
   "mov R20,%[y]\n\t"
   "ldi R17,7\n\t"
@@ -97,7 +97,7 @@ void sprite_xor(byte data[], byte xx, byte yy){
   int8_t x = xx - camX;
   int8_t y = yy - camY;
 
-  uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + gb.display.getBuffer();
+  uint8_t* buf = (((y+8)&0xF8)>>1) * 21 + x + screenbuffer;
   asm volatile(
   "mov R20,%[y]\n\t"
   "ldi R17,7\n\t"

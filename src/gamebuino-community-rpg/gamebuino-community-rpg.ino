@@ -52,6 +52,8 @@ const byte charset_enemy[] PROGMEM = {
 
 
 Gamebuino gb;
+byte* screenbuffer = gb.display.getBuffer();
+
 
 void loadSong(uint16_t num);
 void loadTilemap(uint8_t num);
@@ -66,7 +68,18 @@ byte tilemap[TILEMAP_SIZE];
 byte firstAnimatedSprite;
 GB_File datfile;
 GB_File soundfile;
-bool runScript(byte offset);
+
+class Script {
+  byte vars[SCRIPT_NUM_VARS];
+  uint32_t cursor;
+  uint32_t cursor_loaded;
+  bool condition();
+  byte i,j;
+  void readProg(byte* dst,byte size);
+  public:
+    bool run(byte offset);
+};
+Script script;
 #include "graphics.h"
 #include "player.h"
 #include "enemies.h"
@@ -78,17 +91,16 @@ void loadSong(uint16_t num){
   gb.sound.stopTrack(0);
   gb.sound.stopTrack(1);
 #if ENABLE_SOUND
-  byte *buf = gb.display.getBuffer();
-  soundfile.read(buf, num*1024, 512);
-  write_flash_page((const char*)SOUNDBUFFER_OFFSET, buf);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128), buf+128);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*2), buf+128*2);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*3), buf+128*3);
-  soundfile.read(buf, num*1024+512, 512);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*4), buf);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), buf+128);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), buf+128*2);
-  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), buf+128*3);
+  soundfile.read(screenbuffer, num*1024, 512);
+  write_flash_page((const char*)SOUNDBUFFER_OFFSET, screenbuffer);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128), screenbuffer+128);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*2), screenbuffer+128*2);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*3), screenbuffer+128*3);
+  soundfile.read(screenbuffer, num*1024+512, 512);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*4), screenbuffer);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), screenbuffer+128);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), screenbuffer+128*2);
+  write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), screenbuffer+128*3);
   
   gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
   gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
@@ -96,16 +108,15 @@ void loadSong(uint16_t num){
 }
 
 void loadTilemap(uint8_t num){
-  uint8_t* buf = gb.display.getBuffer();
   uint8_t i;
   for(i = 0;i < MAX_NUM_ENEMIES;i++){ // delete all the enemies
     delete enemies[i];
     enemies[i] = NULL;
   }
   firstAnimatedSprite = TILEMAPS_SPRITESPACE;
-  datfile.read(buf,DATFILE_START_TILEMAPLUT,256);
+  datfile.read(screenbuffer,DATFILE_START_TILEMAPLUT,256);
   for(i = 0;i < 256;i++){
-    if(buf[i] == num){
+    if(screenbuffer[i] == num){
       break;
     }
   }
@@ -113,11 +124,11 @@ void loadTilemap(uint8_t num){
     addEnemy(3,1);
   }
   
-  datfile.read(buf,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
-  uint16_t* have_sprite_buf = (uint16_t*)buf + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
+  datfile.read(screenbuffer,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
+  uint16_t* have_sprite_buf = (uint16_t*)screenbuffer + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
 
   memset(have_sprite_buf,0xFF,2*TILEMAPS_SPRITESPACE);
-  uint16_t* tmptilemapbuf = (uint16_t*)buf;
+  uint16_t* tmptilemapbuf = (uint16_t*)screenbuffer;
   byte* tmpsprite = (uint8_t*)have_sprite_buf + (2*TILEMAPS_SPRITESPACE);
   for(i = 0;i < TILEMAP_SIZE;i ++){
     if(tmptilemapbuf[i]>=SPRITES_FIRST_ANIMATED){
@@ -233,15 +244,13 @@ void moveCam(int8_t x,int8_t y){
 void setup(){
   // put your setup code here, to run once:
   GB_Fat sd;
-//  Serial.begin(9600);
-//  while(!Serial);
   gb.begin();
   gb.setFrameRate(40);
   gb.display.clear();
   gb.display.println(F("loading card..."));
   gb.display.update();
 
-  if(sd.init(gb.display.getBuffer(), SPISPEED_VERYHIGH) != NO_ERROR){
+  if(sd.init(screenbuffer, SPISPEED_VERYHIGH) != NO_ERROR){
     gb.display.clear();
     gb.display.print(F("SD card not found."));
     gb.display.update();
@@ -251,14 +260,14 @@ void setup(){
   gb.display.println(F("Searching for file card..."));
   gb.display.update();
   
-  soundfile = sd.open("SOUND.DAT", gb.display.getBuffer());
+  soundfile = sd.open("SOUND.DAT", screenbuffer);
   if(!soundfile.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open sound file."));
     gb.display.update();
     while(1);
   }
-  datfile = sd.open("DATA.DAT", gb.display.getBuffer());
+  datfile = sd.open("DATA.DAT", screenbuffer);
   if(!datfile.exists()){
     gb.display.clear();
     gb.display.print(F("Couldn't open file."));
