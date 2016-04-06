@@ -70,12 +70,13 @@ GB_File datfile;
 GB_File soundfile;
 
 class Script {
-  byte vars[SCRIPT_NUM_VARS];
+  int8_t vars[SCRIPT_NUM_VARS];
   uint32_t cursor;
   uint32_t cursor_loaded;
   bool condition();
   byte i,j;
   void readProg(byte* dst,byte size);
+  void getVar(byte* var);
   public:
     bool run(byte offset);
 };

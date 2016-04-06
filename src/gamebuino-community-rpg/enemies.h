@@ -52,9 +52,7 @@ class Enemy {
       }
     }
     void draw(){
-      for(byte i = 0;i < 16;i++){
-        tmpsprite[i] = pgm_read_byte(charset_enemy+i);
-      }
+      memcpy_P(tmpsprite,charset_enemy,16);
       sprite_masked(tmpsprite, x, y);
     }
 };

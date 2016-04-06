@@ -76,9 +76,7 @@ class Player {
       moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
     }
     void draw(){
-      for(byte i = 0;i < 16;i++){
-        tmpsprite[i] = pgm_read_byte(charset_player+(direction*24*2+animation*8*2)+i);
-      }
+      memcpy_P(tmpsprite,charset_player+(direction*24*2+animation*8*2),16);
       sprite_masked(tmpsprite, x, y);
     }
 };

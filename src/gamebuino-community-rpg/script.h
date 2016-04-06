@@ -28,14 +28,22 @@ void setScreenContrast_unsafe(byte contrast){
   gb.display.command(PCD8544_FUNCTIONSET);
 }
 
+void Script::getVar(byte* var){
+  readProg(var,1);
+  cursor++;
+  if(*var == 0x80){
+    readProg(var,1);
+    cursor++;
+    *var = (byte)vars[*var];
+  }
+}
+
 void Script::readProg(byte* dst,byte size){
   if(j == 0xFF && cursor_loaded){
-    Serial.println("pre-read");
     datfile.read(screenbuffer,cursor_loaded,512);
     j = 0;
   }
   if(cursor_loaded == 0 || cursor < cursor_loaded || (cursor + size) > (cursor_loaded + 512)){
-    Serial.println("post-read");
     datfile.read(screenbuffer,cursor,512);
     cursor_loaded = cursor;
   }
@@ -90,22 +98,10 @@ bool Script::run(byte offset){
         j = 0xFF;
         break;
       case SCRIPT_SET_PLAYER_X:
-        readProg((uint8_t*)&(player.x),1);
-        cursor++;
-        if(player.x == -128){
-          readProg(&i,1);
-          cursor++;
-          player.x = (int8_t)vars[i];
-        }
+        getVar((byte*)&(player.x));
         break;
       case SCRIPT_SET_PLAYER_Y:
-        readProg((uint8_t*)&(player.y),1);
-        cursor++;
-        if(player.y == -128){
-          readProg(&i,1);
-          cursor++;
-          player.y = (int8_t)vars[i];
-        }
+        getVar((byte*)&(player.y));
         break;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();
@@ -117,22 +113,22 @@ bool Script::run(byte offset){
       case SCRIPT_SET_VAR:
         readProg(&i,1);
         cursor++;
-        readProg(&vars[i],1);
+        readProg((byte*)&vars[i],1);
         cursor++;
         break;
       case SCRIPT_JUMP:
-        readProg((uint8_t*)&cursor,1);
+        readProg((byte*)&cursor,1);
         break;
       case SCRIPT_JUMP_IFNOT:
         if(condition()){
           cursor += 4;
           continue;
         }
-        readProg((uint8_t*)&cursor,1);
+        readProg((byte*)&cursor,1);
         break;
       case SCRIPT_JUMP_IF:
         if(condition()){
-          readProg((uint8_t*)&cursor,1);
+          readProg((byte*)&cursor,1);
           continue;
         }
         cursor += 4;
@@ -168,10 +164,8 @@ bool Script::condition(){
   cursor++;
   switch(i){
     case SCRIPT_LT:
-      readProg(&i,1);
-      cursor++;
-      readProg(&j,1);
-      cursor++;
-      return vars[i] < vars[j];
+      getVar((byte*)&i);
+      getVar((byte*)&j);
+      return i < j;
   }
 }
