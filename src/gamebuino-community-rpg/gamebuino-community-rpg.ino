@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
-#define ENABLE_SOUND 0
+#define ENABLE_SOUND 1
 
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
@@ -103,8 +103,10 @@ void loadSong(uint16_t num){
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), screenbuffer+128*2);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), screenbuffer+128*3);
   
-  gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
-  gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
+  gb.sound.playTrack(0);
+  gb.sound.playTrack(1);
+  //gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
+  //gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET + 40),1);
 #endif
 }
 
@@ -244,6 +246,9 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(){
   // put your setup code here, to run once:
+  //Serial.begin(19200);
+  //while(!Serial);
+  //Serial.println("blah");
   GB_Fat sd;
   gb.begin();
   gb.setFrameRate(40);
@@ -281,8 +286,8 @@ void setup(){
   gb.display.println(F("SD card found."));
   gb.display.update();
 
-  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
-  gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
+  //gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
+  //gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   
   loadSong(0);
   
