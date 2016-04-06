@@ -42,10 +42,10 @@ class Player {
           if(flag == FLAG_TILE_SCREENEND){
             if(y_temp < 0){
               currentMap -= DATFILE_TILEMAPS_WIDTH;
-              y = (TILEMAP_HEIGHT*8) - 8 + 2;
+              y = (TILEMAP_HEIGHT*8) - 8 ;
             }else{
               currentMap += DATFILE_TILEMAPS_WIDTH;
-              y = -2;
+              y = -4;
             }
             return false;
           }
