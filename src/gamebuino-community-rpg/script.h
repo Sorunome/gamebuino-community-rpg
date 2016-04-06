@@ -34,6 +34,10 @@ void Script::getVar(byte* var){
   if(*var == 0x80){
     readProg(var,1);
     cursor++;
+    if(*var == 0xFF){
+      *var = 0x80;
+      return;
+    }
     *var = (byte)vars[*var];
   }
 }
@@ -92,8 +96,7 @@ bool Script::run(byte offset){
         }
         break;
       case SCRIPT_SET_MAP:
-        readProg(&currentMap,1);
-        cursor++;
+        getVar(&currentMap);
         loadTilemap(currentMap);
         j = 0xFF;
         break;
@@ -113,8 +116,7 @@ bool Script::run(byte offset){
       case SCRIPT_SET_VAR:
         readProg(&i,1);
         cursor++;
-        readProg((byte*)&vars[i],1);
-        cursor++;
+        getVar((byte*)&vars[i]);
         break;
       case SCRIPT_JUMP:
         readProg((byte*)&cursor,1);
@@ -136,9 +138,8 @@ bool Script::run(byte offset){
       case SCRIPT_ADD:
         readProg(&i,1);
         cursor++;
-        readProg(&j,1);
-        cursor++;
-        vars[i] += vars[j];
+        getVar(&j);
+        vars[i] += j;
         break;
       case SCRIPT_INC:
         readProg(&i,1);
