@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
-#define ENABLE_SOUND 1
+#define ENABLE_SOUND 0
 
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
@@ -124,7 +124,9 @@ void loadTilemap(uint8_t num){
     }
   }
   if(num == TILEMAP_2){
-    addEnemy(3,1);
+    for(byte j = 0;j < MAX_NUM_ENEMIES;j++){ // delete all the enemies
+      addEnemy(3,1);
+    }
   }
   
   datfile.read(screenbuffer,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
@@ -290,7 +292,6 @@ void setup(){
   //gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
   
   loadSong(0);
-  
   //gb.display.setContrast(gb.display.contrast);
 }
 
