@@ -54,9 +54,13 @@ for t in tracks:
 		ptoffset += len(p)*2
 	for p in t['patternset']:
 		mksound += p
-	if len(mksound) > 1024:
+	elements = len(mksound)
+	if elements > 512:
 		print('ERROR: track is too big, skipping...')
 	else:
+		while elements < 512:
+			mksound.append(0)
+			elements+=1
 		sound += mksound
 		print('Done')
 	i += 1
