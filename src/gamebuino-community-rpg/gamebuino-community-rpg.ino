@@ -76,8 +76,11 @@ class Script {
   uint32_t cursor_call;
   bool condition();
   byte i,j;
+  byte* ptr;
+  byte* ptr2;
+  void getVar();
   void readProg(byte* dst,byte size);
-  void getVar(byte* var);
+  void getNum(byte* var);
   public:
     void loadInTilemap(byte offset);
     bool run();
@@ -250,9 +253,9 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(){
   // put your setup code here, to run once:
-  Serial.begin(19200);
-  while(!Serial);
-  Serial.println("blah");
+  //Serial.begin(19200);
+  //while(!Serial);
+  //Serial.println("blah");
   GB_Fat sd;
   gb.begin();
   gb.setFrameRate(40);

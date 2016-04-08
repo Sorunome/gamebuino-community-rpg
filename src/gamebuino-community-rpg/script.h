@@ -2,8 +2,6 @@
 #define SCRIPT_FADE_TO_WHITE 0x01
 #define SCRIPT_FADE_FROM_WHITE 0x02
 #define SCRIPT_SET_MAP 0x03
-#define SCRIPT_SET_PLAYER_X 0x04
-#define SCRIPT_SET_PLAYER_Y 0x05
 #define SCRIPT_FOCUS_CAM 0x06
 #define SCRIPT_UPDATE_SCREEN 0x07
 #define SCRIPT_SET_VAR 0x08
@@ -20,6 +18,12 @@
 #define SCRIPT_RETURN_FALSE 0xFE
 #define SCRIPT_RETURN_TRUE 0xFF
 
+
+#define SCRIPT_VAR_PLAYER_X 0xFF
+#define SCRIPT_VAR_PLAYER_Y 0xFE
+#define SCRIPT_VAR_MAP 0xFD
+
+
 /*
   you can use i and j almost freely
   BEWARE!!!!! If j is 0xFF (255) when calling readProg it'll re-fetch the buffer off of the sd card, it may slow stuff down
@@ -30,17 +34,38 @@ void setScreenContrast_unsafe(byte contrast){
   gb.display.command(PCD8544_FUNCTIONSET);
 }
 
-void Script::getVar(byte* var){
+void Script::getVar() {
+  readProg(&i,1);
+  cursor++;
+  switch(i){
+    case SCRIPT_VAR_PLAYER_X:
+      ptr = (byte*)&(player.x);
+      return;
+    case SCRIPT_VAR_PLAYER_Y:
+      ptr = (byte*)&(player.y);
+      return;
+    case SCRIPT_VAR_MAP:
+      ptr = (byte*)&currentMap;
+      return;
+    default:
+      ptr = (byte*)&(vars[i]);
+  }
+}
+
+void Script::getNum(byte* var){
   readProg(var,1);
   cursor++;
   if(*var == 0x80){
     readProg(var,1);
-    cursor++;
-    if(*var == 0xFF){
+    if(*var == 0x80){
+      cursor++; // inside here as getVar() will need to read the same byte
       *var = 0x80;
       return;
     }
-    *var = (byte)vars[*var];
+    ptr2 = ptr;
+    getVar();
+    *var = (byte)*ptr;
+    ptr = ptr2;
   }
 }
 
@@ -79,7 +104,7 @@ void Script::loadInTilemap(byte offset){
   }
 }
 
-bool __attribute__((optimize("O2"))) Script::run(){
+bool Script::run(){
   j = 0xFF;
   cursor_loaded = 0;
   drawScreen();
@@ -101,15 +126,9 @@ bool __attribute__((optimize("O2"))) Script::run(){
         }
         continue;
       case SCRIPT_SET_MAP:
-        getVar(&currentMap);
+        getNum(&currentMap);
         loadTilemap(currentMap);
         j = 0xFF;
-        continue;
-      case SCRIPT_SET_PLAYER_X:
-        getVar((byte*)&(player.x));
-        continue;
-      case SCRIPT_SET_PLAYER_Y:
-        getVar((byte*)&(player.y));
         continue;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();
@@ -119,9 +138,8 @@ bool __attribute__((optimize("O2"))) Script::run(){
         j = 0xFF;
         continue;
       case SCRIPT_SET_VAR:
-        readProg(&i,1);
-        cursor++;
-        getVar((byte*)&vars[i]);
+        getVar();
+        getNum((byte*)ptr);
         continue;
       case SCRIPT_JUMP:
         readProg((byte*)&cursor,1);
@@ -141,20 +159,17 @@ bool __attribute__((optimize("O2"))) Script::run(){
         cursor += 4;
         continue;
       case SCRIPT_ADD:
-        readProg(&i,1);
-        cursor++;
-        getVar(&j);
-        vars[i] += j;
+        getVar();
+        getNum(&j);
+        *ptr += j;
         continue;
       case SCRIPT_INC:
-        readProg(&i,1);
-        cursor++;
-        vars[i]++;
+        getVar();
+        (*ptr)++;
         continue;
       case SCRIPT_DEC:
-        readProg(&i,1);
-        cursor++;
-        vars[i]--;
+        getVar();
+        (*ptr)--;
         continue;
       case SCRIPT_CALL:
         cursor_call = cursor+4;
@@ -177,8 +192,8 @@ bool Script::condition(){
   cursor++;
   switch(i){
     case SCRIPT_LT:
-      getVar((byte*)&i);
-      getVar((byte*)&j);
+      getNum((byte*)&i);
+      getNum((byte*)&j);
       return i < j;
   }
 }
