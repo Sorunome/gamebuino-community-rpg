@@ -73,12 +73,14 @@ class Script {
   int8_t vars[SCRIPT_NUM_VARS];
   uint32_t cursor;
   uint32_t cursor_loaded;
+  uint32_t cursor_call;
   bool condition();
   byte i,j;
   void readProg(byte* dst,byte size);
   void getVar(byte* var);
   public:
-    bool run(byte offset);
+    void loadInTilemap(byte offset);
+    bool run();
 };
 Script script;
 #include "graphics.h"
@@ -248,9 +250,9 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(){
   // put your setup code here, to run once:
-  //Serial.begin(19200);
-  //while(!Serial);
-  //Serial.println("blah");
+  Serial.begin(19200);
+  while(!Serial);
+  Serial.println("blah");
   GB_Fat sd;
   gb.begin();
   gb.setFrameRate(40);

@@ -30,7 +30,8 @@ class Player {
             return false;
           }
           if(flag == FLAG_TILE_SCRIPT){
-            return script.run(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            script.loadInTilemap(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            return script.run();
           }
           
           
@@ -53,7 +54,8 @@ class Player {
             status = PLAYER_STATUS_FALL;
           }
           if(flag == FLAG_TILE_SCRIPT){
-            return script.run(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            script.loadInTilemap(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            return script.run();
           }
         }
         return true;

@@ -14,6 +14,8 @@
 #define SCRIPT_JUMP_IF 0x0D
 #define SCRIPT_INC 0x0E
 #define SCRIPT_DEC 0x0F
+#define SCRIPT_CALL 0x10
+#define SCRIPT_RET 0x11
 
 #define SCRIPT_RETURN_FALSE 0xFE
 #define SCRIPT_RETURN_TRUE 0xFF
@@ -53,16 +55,16 @@ void Script::readProg(byte* dst,byte size){
   }
   memcpy(dst,screenbuffer + (cursor - cursor_loaded),size);
 }
-
-bool Script::run(byte offset){
+void Script::loadInTilemap(byte offset){
   i = 0;
   j = 0;
   
+
   datfile.read(screenbuffer,DATFILE_START_SCRIPT,42*6); // 42*6 as it fits in one byte and is devisible by six
   while(true){
     if(screenbuffer[i] == 0xFF){
       gb.display.clear();
-      return true;
+      return;
     }
     if(screenbuffer[i] == offset && screenbuffer[i+1] == currentMap){
       cursor = (uint16_t(screenbuffer[i+2])+(uint16_t(screenbuffer[i+3])<<8)+(uint32_t(screenbuffer[i+4])<<16)+(uint32_t(screenbuffer[i+5])<<24));
@@ -75,6 +77,9 @@ bool Script::run(byte offset){
       j++;
     }
   }
+}
+
+bool __attribute__((optimize("O2"))) Script::run(){
   j = 0xFF;
   cursor_loaded = 0;
   drawScreen();
@@ -88,70 +93,77 @@ bool Script::run(byte offset){
           setScreenContrast_unsafe(--i);
           delay(7);
         }while(i > 0);
-        break;
+        continue;
       case SCRIPT_FADE_FROM_WHITE:
         for(i=0;i <= gb.display.contrast;i++){
           setScreenContrast_unsafe(i);
           delay(7);
         }
-        break;
+        continue;
       case SCRIPT_SET_MAP:
         getVar(&currentMap);
         loadTilemap(currentMap);
         j = 0xFF;
-        break;
+        continue;
       case SCRIPT_SET_PLAYER_X:
         getVar((byte*)&(player.x));
-        break;
+        continue;
       case SCRIPT_SET_PLAYER_Y:
         getVar((byte*)&(player.y));
-        break;
+        continue;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();
-        break;
+        continue;
       case SCRIPT_UPDATE_SCREEN:
         drawScreen();
         j = 0xFF;
-        break;
+        continue;
       case SCRIPT_SET_VAR:
         readProg(&i,1);
         cursor++;
         getVar((byte*)&vars[i]);
-        break;
+        continue;
       case SCRIPT_JUMP:
         readProg((byte*)&cursor,1);
-        break;
+        continue;
       case SCRIPT_JUMP_IFNOT:
         if(condition()){
           cursor += 4;
           continue;
         }
         readProg((byte*)&cursor,1);
-        break;
+        continue;
       case SCRIPT_JUMP_IF:
         if(condition()){
           readProg((byte*)&cursor,1);
           continue;
         }
         cursor += 4;
-        break;
+        continue;
       case SCRIPT_ADD:
         readProg(&i,1);
         cursor++;
         getVar(&j);
         vars[i] += j;
-        break;
+        continue;
       case SCRIPT_INC:
         readProg(&i,1);
         cursor++;
         vars[i]++;
-        break;
+        continue;
       case SCRIPT_DEC:
         readProg(&i,1);
         cursor++;
         vars[i]--;
-        break;
-      
+        continue;
+      case SCRIPT_CALL:
+        cursor_call = cursor+4;
+        readProg((byte*)&cursor,1);
+        continue;
+      case SCRIPT_RET:
+        cursor = cursor_call;
+        continue;
+
       case SCRIPT_RETURN_FALSE:
         return false;
       case SCRIPT_RETURN_TRUE:
