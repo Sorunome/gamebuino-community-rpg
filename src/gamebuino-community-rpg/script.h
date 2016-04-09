@@ -88,7 +88,7 @@ void Script::loadInTilemap(byte offset){
   datfile.read(screenbuffer,DATFILE_START_SCRIPT,42*6); // 42*6 as it fits in one byte and is devisible by six
   while(true){
     if(screenbuffer[i] == 0xFF){
-      gb.display.clear();
+      cursor = 0;
       return;
     }
     if(screenbuffer[i] == offset && screenbuffer[i+1] == currentMap){
@@ -105,6 +105,10 @@ void Script::loadInTilemap(byte offset){
 }
 
 bool Script::run(){
+  if(!cursor){
+    gb.display.clear();
+    return true;
+  }
   j = 0xFF;
   cursor_loaded = 0;
   drawScreen();
@@ -182,6 +186,7 @@ bool Script::run(){
       case SCRIPT_RETURN_FALSE:
         return false;
       case SCRIPT_RETURN_TRUE:
+        gb.display.clear();
         return true;
     }
   }
