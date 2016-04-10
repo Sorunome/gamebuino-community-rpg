@@ -11,6 +11,7 @@ class Player {
         int8_t x_temp = 0;
         int8_t y_temp = 0;
         if(gb.buttons.pressed(BTN_A)){
+          // A is pressed! determine what to do
           switch(direction){
             case 0:
               x_temp = 1;
@@ -26,6 +27,7 @@ class Player {
           }
           flag = getWalkInfo(x+2,y+4,4,4,x_temp,y_temp);
           if(flag==FLAG_TILE_MANUAL_SCRIPT){
+            // we need to run a script
             if(x_temp > 0){
               x_temp = 4;
             }
@@ -37,18 +39,24 @@ class Player {
           }
           return true;
         }
+
+        // get the x and y offsets
         x_temp = -gb.buttons.pressed(BTN_LEFT)+gb.buttons.pressed(BTN_RIGHT);
         y_temp = -gb.buttons.pressed(BTN_UP)+gb.buttons.pressed(BTN_DOWN);
-        if(x_temp || y_temp){
-          animation = millis()/ANIMATION_FREQUENCY%2;
+        if(x_temp || y_temp){ // if either of them changed move the player
+          animation = millis()/ANIMATION_FREQUENCY%2; // update the animation
+
+          // calculate the direction
           direction = (1+x_temp)*(x_temp != 0);
           direction = (2+y_temp)*(y_temp != 0 || direction == 0);
-          flag = getWalkInfo(x+2,y+4,4,4,x_temp,0);
+
+          flag = getWalkInfo(x+2,y+4,4,4,x_temp,0); // get the walking flag for x-direction
           if(flag == FLAG_TILE_WALKABLE){
             focusCam();
             x += x_temp;
           }
           if(flag == FLAG_TILE_SCREENEND){
+            // we walked off the screen! We need to switch tilemaps!
             if(x_temp < 0){
               currentMap--;
               x = (TILEMAP_WIDTH*8) - 8 + 2;
@@ -56,7 +64,7 @@ class Player {
               currentMap++;
               x = -2;
             }
-            return false;
+            return false; // no way we are just continuing the loaded tilemap, we need to load a new one!
           }
           if(flag == FLAG_TILE_SCRIPT){
             if(x_temp > 0){
@@ -67,12 +75,13 @@ class Player {
           }
           
           
-          flag = getWalkInfo(x+2,y+4,4,4,0,y_temp);
+          flag = getWalkInfo(x+2,y+4,4,4,0,y_temp); // get the walking flag for y-direction
           if(flag <= FLAG_TILE_WALKABLE){
             focusCam();
             y += y_temp; // below here else diagonal movements may screw up while switching stuff
           }
           if(flag == FLAG_TILE_SCREENEND){
+            // we walked off the screen! We need to switch tilemaps!
             if(y_temp < 0){
               currentMap -= DATFILE_TILEMAPS_WIDTH;
               y = (TILEMAP_HEIGHT*8) - 8 ;
@@ -83,6 +92,7 @@ class Player {
             return false;
           }
           if(flag == FLAG_TILE_FALL && y_temp > 0){
+            // do we need to start falling? If so, change the status from falling to idle!
             status = PLAYER_STATUS_FALL;
           }
           if(flag == FLAG_TILE_SCRIPT){
@@ -96,8 +106,9 @@ class Player {
         return true;
       }
       if(status == PLAYER_STATUS_FALL){
-        y++;
+        y++; // we fall DOWN
         if(y > (TILEMAP_HEIGHT*8) - 8){
+          // we need to load a new map!
           currentMap += DATFILE_TILEMAPS_WIDTH;
           y = 0;
           return false;
@@ -110,6 +121,7 @@ class Player {
       }
     }
     void focusCam(){
+      // this just focuses the cam onto the player
       moveCam(x - (LCDWIDTH / 2), y - (LCDHEIGHT / 2));
     }
     void draw(){

@@ -1,4 +1,13 @@
-void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><sprite-byte><mask-byte><sprite-byte> etc. Mask is OR'd, the shape of the sprite, the sprite is the actual sprite, will be AND'd
+/*
+  sprite_masked
+
+  this draws a masked sprite to the spritebuffer.
+  data like <mask-byte><sprite-byte><mask-byte><sprite-byte> etc. Mask is OR'd, the shape of the sprite, the sprite is the actual sprite, will be AND'd
+
+  takes: data (in ram),x,y
+  returns: none
+*/
+void sprite_masked(byte data[], byte xx, byte yy){
   int8_t x = xx - camX;
   int8_t y = yy - camY;
   
@@ -93,6 +102,14 @@ void sprite_masked(byte data[], byte xx, byte yy){ // data like <mask-byte><spri
   ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20","r21","r15");
 }
 
+/*
+  sprite_xor
+
+  draws a sprite using XOR to the graph buffer
+
+  takes: data (in ram),x,y
+  returns: none
+*/
 void sprite_xor(byte data[], byte xx, byte yy){
   int8_t x = xx - camX;
   int8_t y = yy - camY;
@@ -175,7 +192,16 @@ void sprite_xor(byte data[], byte xx, byte yy){
   ::"x" (buf - 84),"y" (buf),"z" (data),[y] "d" (y),[x] "d" (x):"r16","r17","r18","r19","r20");
 }
 
+/*
+  drawTilemap
+
+  draws the tilemap to the graphbuffer, it assumes that the graphbuffer is clear
+
+  takes: none
+  returns: none
+*/
 void drawTilemap(){
+  // OK, sorry, I do not remember how this is working, I just copypasted it off of my (sorunome) gb.display.tilemap thingy
   int8_t startDdx = (-camX) / 8;
   int8_t startDdy = (-camY) / 8;
   int8_t maxDdx = (LCDWIDTH + 8 - 1 + camX) / 8;
