@@ -2,6 +2,7 @@
 #define SCRIPT_FADE_TO_WHITE 0x01
 #define SCRIPT_FADE_FROM_WHITE 0x02
 #define SCRIPT_SET_MAP 0x03
+#define SCRIPT_TEXT 0x04
 #define SCRIPT_FOCUS_CAM 0x06
 #define SCRIPT_UPDATE_SCREEN 0x07
 #define SCRIPT_SET_VAR 0x08
@@ -22,6 +23,7 @@
 #define SCRIPT_VAR_PLAYER_X 0xFF
 #define SCRIPT_VAR_PLAYER_Y 0xFE
 #define SCRIPT_VAR_MAP 0xFD
+#define SCRIPT_VAR_WORLD 0xFC
 
 
 /*
@@ -46,6 +48,9 @@ void Script::getVar() {
       return;
     case SCRIPT_VAR_MAP:
       ptr = (byte*)&currentMap;
+      return;
+    case SCRIPT_VAR_WORLD:
+      ptr = (byte*)&currentWorld;
       return;
     default:
       ptr = (byte*)&(vars[i]);
@@ -83,7 +88,6 @@ void Script::readProg(byte* dst,byte size){
 void Script::loadInTilemap(byte offset){
   i = 0;
   j = 0;
-  
 
   datfile.read(screenbuffer,DATFILE_START_SCRIPT,42*6); // 42*6 as it fits in one byte and is devisible by six
   while(true){
@@ -134,11 +138,15 @@ bool Script::run(){
         loadTilemap(currentMap);
         j = 0xFF;
         continue;
+      case SCRIPT_TEXT:
+        dispText();
+        continue;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();
         continue;
       case SCRIPT_UPDATE_SCREEN:
         drawScreen();
+        gb.display.update();
         j = 0xFF;
         continue;
       case SCRIPT_SET_VAR:
@@ -200,5 +208,58 @@ bool Script::condition(){
       getNum((byte*)&i);
       getNum((byte*)&j);
       return i < j;
+  }
+}
+
+void Script::drawTextBox(){
+  drawScreen();
+  gb.display.setColor(BLACK);
+  gb.display.drawFastHLine(4,31,76);
+  gb.display.drawFastHLine(4,45,76);
+  gb.display.drawFastVLine(3,32,13);
+  gb.display.drawFastVLine(80,32,13);
+  gb.display.setColor(WHITE);
+  gb.display.fillRect(4,32,76,13);
+  gb.display.cursorX = 5;
+  gb.display.cursorY = 33;
+  gb.display.update();
+  gb.display.setColor(BLACK);
+}
+
+void Script::dispText(){
+  drawTextBox();
+  j = 0;
+  while(true){
+    if(!j && !gb.buttons.pressed(BTN_A)){
+      j = 1;
+    }
+    datfile.read(&i,cursor++,1); // no read prog as we absolutly need the screen buffer!
+    switch(i){
+      case 0xFF:
+        while(gb.buttons.pressed(BTN_A)); // we need to release the a button at least
+        while(!gb.buttons.pressed(BTN_A));
+        while(gb.buttons.pressed(BTN_A));
+
+        j = 0xFF; // we need to re-fetch the program buffer
+        return;
+      case 0xFE:
+        gb.display.cursorX = 5;
+        gb.display.cursorY += 6;
+        continue;
+      case 0xFD:
+        while(gb.buttons.pressed(BTN_A)); // we need to release the a button at least
+        while(!gb.buttons.pressed(BTN_A));
+        while(gb.buttons.pressed(BTN_A));
+        j = 0;
+        drawTextBox();
+        continue;
+      default:
+        gb.display.drawChar(gb.display.cursorX,gb.display.cursorY,(char)i,1);
+        gb.display.cursorX += 4;
+        gb.display.update();
+        if(!j || (j && !gb.buttons.pressed(BTN_A))){
+          delay(100);
+        }
+    }
   }
 }

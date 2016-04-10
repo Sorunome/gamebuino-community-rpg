@@ -8,8 +8,37 @@ class Player {
     bool update(){
       byte flag;
       if(status == PLAYER_STATUS_IDLE){
-        int8_t x_temp = -gb.buttons.pressed(BTN_LEFT)+gb.buttons.pressed(BTN_RIGHT);
-        int8_t y_temp = -gb.buttons.pressed(BTN_UP)+gb.buttons.pressed(BTN_DOWN);
+        int8_t x_temp = 0;
+        int8_t y_temp = 0;
+        if(gb.buttons.pressed(BTN_A)){
+          switch(direction){
+            case 0:
+              x_temp = 1;
+              break;
+            case 1:
+              y_temp = -1;
+              break;
+            case 2:
+              x_temp = -1;
+              break;
+            case 3:
+              y_temp = 1;
+          }
+          flag = getWalkInfo(x+2,y+4,4,4,x_temp,y_temp);
+          if(flag==FLAG_TILE_MANUAL_SCRIPT){
+            if(x_temp > 0){
+              x_temp = 4;
+            }
+            if(y_temp > 0){
+              y_temp = 4;
+            }
+            script.loadInTilemap(((x+2+x_temp) / 8) + (((y+4+y_temp) / 8)*TILEMAP_WIDTH));
+            return script.run();
+          }
+          return true;
+        }
+        x_temp = -gb.buttons.pressed(BTN_LEFT)+gb.buttons.pressed(BTN_RIGHT);
+        y_temp = -gb.buttons.pressed(BTN_UP)+gb.buttons.pressed(BTN_DOWN);
         if(x_temp || y_temp){
           animation = millis()/ANIMATION_FREQUENCY%2;
           direction = (1+x_temp)*(x_temp != 0);
@@ -30,7 +59,10 @@ class Player {
             return false;
           }
           if(flag == FLAG_TILE_SCRIPT){
-            script.loadInTilemap(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            if(x_temp > 0){
+              x_temp = 4;
+            }
+            script.loadInTilemap(((x+2+x_temp) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
             return script.run();
           }
           
@@ -54,7 +86,10 @@ class Player {
             status = PLAYER_STATUS_FALL;
           }
           if(flag == FLAG_TILE_SCRIPT){
-            script.loadInTilemap(((x+2) / 8) + (((y+4) / 8)*TILEMAP_WIDTH));
+            if(y_temp > 0){
+              y_temp = 4;
+            }
+            script.loadInTilemap(((x+2) / 8) + (((y+4+y_temp) / 8)*TILEMAP_WIDTH));
             return script.run();
           }
         }

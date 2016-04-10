@@ -1,5 +1,4 @@
 <?php
-$mapId = 1; // TODO: change
 
 if((!$security->isLoggedIn() || !($user_info['power']&128)) && $_GET['pwd']!='weetigaeVeezahth5Poh3Lah2uuFaephohx7oolaimiejaera5'){
 	echo $page->getPage('Nope','<script type="text/javascript">getPageJSON("/");</script>Redirecting...',$lang,$pathPartsParsed);
@@ -39,10 +38,11 @@ class Parser{
 	private $if_stack = [];
 	private $while_stack = [];
 	private $defines = [];
-	private $extra_vars = ['player_x','player_y','map'];
+	private $extra_vars = ['player_x','player_y','map','world'];
 	private $firstPass = true;
 	private $labels = [];
 	private $genericLabelCounter = 0;
+	private $addressPrefix = '';
 	private function getLabel(){
 		return '++generic_label_'.($this->genericLabelCounter++).'++';
 	}
@@ -50,13 +50,13 @@ class Parser{
 		if(!$this->firstPass){
 			return;
 		}
-		$this->labels[$label] = $this->bytes + $offset + $this->offset;
+		$this->labels[$this->addressPrefix.$label] = $this->bytes + $offset + $this->offset;
 	}
 	private function getAddress($label){
 		if($this->firstPass){
 			return '00000000';
 		}
-		return dechexpad2($this->labels[$label],8,true);
+		return dechexpad2($this->labels[$this->addressPrefix.$label],8,true);
 	}
 	private function getVarNum($var){
 		if(isset($this->variables[$var])){
@@ -92,8 +92,12 @@ class Parser{
 			preg_match_all('/(?:\\(|,)([^(),]*(?:\\([^)]+[^),]*\\))?)/',$matches[2],$matches,PREG_SET_ORDER);
 			foreach($matches as $m){
 				$m[1] = strtr($m[1],$this->defines);
-				if(preg_match('/^[\d\s*+\\/\\-()]+$/',$m[1])){
-					$m[1] = eval("return $m[1];");
+				if(isset($this->functions[$function]) && isset($this->functions[$function]['unparsed_args']) && $this->functions[$function]['unparsed_args']){
+
+				}else{
+					if(preg_match('/^[\d\s*+\\/\\-()]+$/',$m[1])){
+						$m[1] = eval("return $m[1];");
+					}
 				}
 				$args[] = trim($m[1]);
 			}
@@ -225,11 +229,77 @@ class Parser{
 					return '11';
 				}
 			],
+			'text' => [
+				'args_min' => 1,
+				'args_max' => 99999999999,
+				'fn' => function($args){
+					$s = implode(',',$args);
+					$s = preg_replace_callback('/\\\\x([\da-fA-F]{2})/',function($matches){
+						return hex2bin($matches[1]);
+					},$s);
+					$s = strtr($s,[
+						'\\n' => "\xfe",
+						'\\r' => "\xfd"
+					]);
+					$a = [];
+					while(strlen($s)){
+						if(strlen($s) > 19){
+							for($i = 19;$i >= 0;$i--){
+								if(isset($s[$i]) && $s[$i] == ' '){
+									break;
+								}
+							}
+							if($i <= 0){
+								$i = 19;
+							}
+							$a[] = substr($s,0,$i);
+							$s = ltrim(substr($s,$i));
+						}else{
+							$a[] = $s;
+							break;
+						}
+					}
+					$s = '';
+					$alt = true;
+					foreach($a as $e){
+						$s .= $e;
+						if($alt = !$alt){
+							// pagebreak
+							$s .="\xfd";
+						}else{
+							// linebreak
+							$s .= "\xfe";
+						}
+					}
+					$s = substr($s,0,-1);
+					return '04'.bin2hex($s).'ff';
+				}
+			],
+
 			'hex' => [
 				'args_min' => 1,
 				'args_max' => 1,
+				'unparsed_args' => true,
 				'fn' => function($args){
 					return $args[0];
+				}
+			],
+			'put_address' => [
+				'args_min' => 1,
+				'args_max' => 1,
+				'fn' => function($args){
+					return $this->getAddress($args[0]);
+				}
+			],
+			'set_address_prefix' => [
+				'args_min' => 0,
+				'args_max' => 1,
+				'fn' => function($args){
+					if(sizeof($args) == 0){
+						$this->addressPrefix = '';
+					}else{
+						$this->addressPrefix = $args[0];
+					}
 				}
 			],
 			
@@ -257,11 +327,11 @@ class Parser{
 					}
 				}
 			],
-			'put_address' => [
-				'args_min' => 1,
-				'args_max' => 1,
-				'fn' => function($args){
-					return dechexpad2($args[0]+$this->offset,8,true);
+			'clear_vars' => [
+				'args_min' => 0,
+				'args_max' => 0,
+				'fn' => function(){
+					$this->variables = [];
 				}
 			],
 			'set_player_pos' => [
@@ -371,10 +441,12 @@ class Parser{
 		$this->labels = [];
 		$this->firstPass = true;
 		$this->genericLabelCounter = 0;
+		$this->addressPrefix = '';
 		foreach(explode("\n",strtolower($script)) as $line){
 			$out .= $this->parseLine($line);
 			$this->bytes = strlen($out);
 		}
+		$this->addressPrefix = '';
 		$this->bytes = 0;
 		$out = '';
 		$this->firstPass = false;
@@ -394,7 +466,7 @@ class Parser{
 $parser = new Parser();
 
 $sql->query("UPDATE `sprites` SET `in_use`=0 WHERE 1");
-$tilemaps = $sql->query("SELECT `data` FROM `tilemaps` WHERE `mapId`=%d",[$mapId]);
+$tilemaps = $sql->query("SELECT `data` FROM `tilemaps`",[]);
 $spritesInUse = [];
 foreach($tilemaps as $t){
 	$td = json_decode($t['data'],true);
@@ -414,6 +486,7 @@ $spritesWithId = [];
 $spritesLUT = [];
 $idCounter = 0;
 $defines = [];
+$defines['script_num_vars'] = 0; // else the parser will error
 $sprites_inanimate = $sql->query("SELECT `id` FROM `sprites` WHERE `animated`=0");
 foreach($sprites_inanimate as $s){
 	$s = $s['id'];
@@ -442,7 +515,7 @@ foreach($spritesInUse as $s){
 
 
 
-$mapDimensions = $sql->query("SELECT MIN(`x`) AS `minx`,MAX(`x`)-MIN(`x`)+1 AS `width`,MIN(`y`) AS `miny` FROM `tilemaps` WHERE `mapId`=%d",[$mapId],0);
+$mapDimensions = $sql->query("SELECT MIN(`x`) AS `minx`,MAX(`x`)-MIN(`x`)+1 AS `width`,MIN(`y`) AS `miny` FROM `tilemaps`",[],0);
 
 $html = '<h1>Sprites</h1><textarea style="width:100%;height:500px;">';
 
@@ -492,12 +565,30 @@ foreach($spritesLUT as $normalId => $asmId){
 $html .= $file.'</textarea><h1>Tilemaps</h1><textarea style="width:100%;height:500px;">';
 
 
-$file = "_tilemaps_data:\n";
-$tilemaps = $sql->query("SELECT `data`,`id`,`x`,`y`,`area` FROM `tilemaps` WHERE `mapId`=%d",[$mapId]);
-$tilemapdat = '';
-$tilemaplutdat = '';
-foreach($tilemaps as $t){
-	$file .= "_tilemaps_data_".$t['id'].":\n";
+
+
+$defines['datfile_start_sprites'] = 0;
+$defines['datfile_start_tilemaplut'] = strlen($spritesdat);
+$datfile = $spritesdat;
+
+
+$oldMapId = -1;
+$tilemaps = '';
+$tilemapslut = '';
+$tilemapslutlut = '';
+$asmMapId = -1; // will be increased to zero
+$genericAddressPrefix = 0;
+foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript` FROM `tilemaps` ORDER BY `mapId` ASC",[]) as $t){
+	if($t['mapId'] != $oldMapId){
+		$asmMapId++;
+		$tilemapslutlut .= "put_address(++world#$asmMapId++)\n";
+		$tilemapslut .= "label(++world#$asmMapId++)\n";
+		$oldMapId = $t['mapId'];
+		$defines['world_'.$t['mapId']] = $asmMapId;
+		$defines['world_'.strtolower($sql->query("SELECT `name` FROM `maps` WHERE `id`=%d",[$t['mapId']],0)['name'])] = $asmMapId;
+	}
+	$tilemaps .= "label(++tilemap#$t[id]++)\n";
+
 	$td = json_decode($t['data'],true);
 	$k = 0;
 	$xPos = (int)$t['x'] - (int)$mapDimensions['minx'];
@@ -505,31 +596,45 @@ foreach($tilemaps as $t){
 	$mapId = $yPos * (int)$mapDimensions['width'] + $xPos;
 	$sql->query("UPDATE `tilemaps` SET `asm_id`='%s' WHERE `id`=%d",[dechexpad2($mapId),$t['id']]);
 	
+	$tilemapslut .= "hex(".dechexpad2($mapId).")\nput_address(++tilemap#$t[id]++)\n";
 	$defines['tilemap_'.$t['id']] = $mapId;
-	$tilemaplutdat .= hex2bin(dechexpad2($mapId));
-	$tilemapdat .= hex2bin('00');
+
+	$header = 0;
+	if(trim($t['exitScript'])){
+		$header |= 1;
+	}
+
+	$s = dechexpad2($header);
 	
 	$hexData = ['0x00'];
 	for($i = 0;$i < 8;$i++){
 		for($j = 0;$j < 12;$j++){
-			$hexData[] = '0x'.$spritesLUT[$td[$k]];
-			$tilemapdat .= hex2bin(reverseEndian($spritesLUT[$td[$k]]));
+			$s .= reverseEndian($spritesLUT[$td[$k]]);
 			$k++;
 		}
 	}
-	
-	$file .= "\t.db ";
-	for($i = 0;$i < sizeof($hexData);$i++){
-		$file .= $hexData[$i].',';
+
+	$tilemaps .= "hex($s)\n";
+	if(trim($t['exitScript'])){
+		$genericAddressPrefix++;
+		$tilemaps .= "set_address_prefix(##generic$genericAddressPrefix##)\n$t[exitScript]\nclear_vars\nset_address_prefix()\n";
 	}
-	$file = substr($file,0,-1)."\n";
+
 }
+$scriptOffset = strlen($datfile);
+$file = $tilemapslutlut.$tilemapslut.$tilemaps;
 
 
+
+$defines['datfile_start_tilemap'] = $scriptOffset;
+$datfile .= $parser->parse($file,$scriptOffset,$defines);;
 
 $defines['datfile_tilemaps_header_size'] = '1';
 $defines['datfile_tilemap_size'] = 1 + (2*8*12);
 $defines['datfile_tilemaps_width'] = $mapDimensions['width'];
+
+
+
 $defaultMap = $sql->query("SELECT `asm_id` FROM `tilemaps` WHERE `id`=%d",[$vars->get('defaultMap')],0);
 $defines['tilemaps_defaultmap'] = "0x".$defaultMap['asm_id'];
 $maxspritespace = $sql->query("SELECT MAX(`spritespace`) AS `spritespace` FROM `tilemaps`",[],0);
@@ -542,32 +647,24 @@ $defines['tilemaps_spritespace'] = $maxspritespace['spritespace'];
 $html .= $file.'</textarea><h1>Defines</h1><textarea style="width:100%;height:500px;">';
 
 
-
-$headersize = 4;
-$defines['datfile_start_sprites'] = 0;
-$defines['datfile_start_tilemaplut'] = strlen($spritesdat);
-$defines['datfile_start_tilemap'] = strlen($tilemaplutdat) + strlen($spritesdat);
-$defines['datfile_start_script'] = strlen($tilemaplutdat) + strlen($spritesdat) + strlen($tilemapdat);
+$defines['datfile_start_script'] = strlen($datfile);
 
 $scriptOffset = ($sql->query("SELECT COUNT(`id`) AS num FROM `eventTiles`",[],0)['num'] * 6) + 1 + $defines['datfile_start_script'];
 
 $scriptlutdat = '';
 $scriptdat = '';
 $scripts = $sql->query("SELECT `code`,`refId`,`x`+(`y`)*12 AS `offset` FROM `eventTiles`");
-$defines['script_num_vars'] = 0;
+$defines['script_num_vars'] = 1; // else c++ will try to create a zero-length array
 foreach($scripts as $s){
 	if($s['code']!==NULL){
 		$sc = $parser->parse($s['code'],$scriptOffset,$defines);
-		$scriptlutdat = hex2bin(dechexpad2((int)$s['offset'])).hex2bin(dechexpad2($defines['tilemap_'.$s['refId']])).hex2bin(dechexpad2($scriptOffset,8,true));
+		$scriptlutdat .= hex2bin(dechexpad2((int)$s['offset'])).hex2bin(dechexpad2($defines['tilemap_'.$s['refId']])).hex2bin(dechexpad2($scriptOffset,8,true));
 		$scriptOffset += strlen($sc);
 		$scriptdat .= $sc;
 	}
 }
 $scriptlutdat .= hex2bin('ff');
 
-$datfile = $spritesdat;
-$datfile .= $tilemaplutdat;
-$datfile .= $tilemapdat;
 $datfile .= $scriptlutdat;
 $datfile .= $scriptdat;
 file_put_contents(realpath(dirname(__FILE__)).'/DATA.DAT',$datfile);

@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
-#define ENABLE_SOUND 0
+#define ENABLE_SOUND 1
 
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
@@ -16,6 +16,7 @@
 #define FLAG_TILE_WATER 3
 #define FLAG_TILE_FALL 4
 #define FLAG_TILE_SCRIPT 5
+#define FLAG_TILE_MANUAL_SCRIPT 6
 
 #define PLAYER_STATUS_IDLE 0
 #define PLAYER_STATUS_FALL 1
@@ -31,6 +32,8 @@ byte tileset[8*TILEMAPS_SPRITESPACE];
 byte tmpsprite[16];
 byte walksprites[TILEMAPS_SPRITESPACE];
 byte currentMap = TILEMAPS_DEFAULTMAP;
+byte currentWorld = 0;
+uint32_t mapAddress = 0;
 
 const byte charset_player[] PROGMEM  = {
   0x87,0x78, 0x87,0x48, 0x01,0xfe, 0x01,0xfe, 0x81,0x7a, 0x01,0xf2, 0x6f,0x90, 0xc0,0x2f,
@@ -71,9 +74,6 @@ GB_File soundfile;
 
 class Script {
   int8_t vars[SCRIPT_NUM_VARS];
-  uint32_t cursor;
-  uint32_t cursor_loaded;
-  uint32_t cursor_call;
   bool condition();
   byte i,j;
   byte* ptr;
@@ -81,7 +81,12 @@ class Script {
   void getVar();
   void readProg(byte* dst,byte size);
   void getNum(byte* var);
+  void dispText();
+  void drawTextBox();
   public:
+    uint32_t cursor;
+    uint32_t cursor_loaded;
+    uint32_t cursor_call;
     void loadInTilemap(byte offset);
     bool run();
 };
@@ -115,6 +120,19 @@ void loadSong(uint16_t num){
 #endif
 }
 
+bool exitTilemap(){
+  if(!mapAddress){
+    return true;
+  }
+  uint8_t i;
+  datfile.read(&i,mapAddress,1);
+  if(i&1){ // we have an exit script!
+    script.cursor = mapAddress + DATFILE_TILEMAP_SIZE;
+    return script.run();
+  }
+  return true;
+}
+
 void loadTilemap(uint8_t num){
   uint8_t i;
   for(i = 0;i < MAX_NUM_ENEMIES;i++){ // delete all the enemies
@@ -122,19 +140,32 @@ void loadTilemap(uint8_t num){
     enemies[i] = NULL;
   }
   firstAnimatedSprite = TILEMAPS_SPRITESPACE;
-  datfile.read(screenbuffer,DATFILE_START_TILEMAPLUT,256);
-  for(i = 0;i < 256;i++){
+
+  datfile.read((byte*)&mapAddress,DATFILE_START_TILEMAPLUT + (currentWorld*4),4);
+
+
+  datfile.read(screenbuffer,mapAddress,256);
+  i = 0;
+  while(true){
     if(screenbuffer[i] == num){
+      memcpy(&mapAddress,&screenbuffer[i+1],4);
       break;
     }
+    if(i==255){
+      mapAddress += 255;
+      i = 0;
+      datfile.read(screenbuffer,mapAddress,256);
+      continue;
+    }
+    i += 5;
   }
   if(num == TILEMAP_2){
     for(byte j = 0;j < MAX_NUM_ENEMIES;j++){ // delete all the enemies
       addEnemy(3,1);
     }
   }
-  
-  datfile.read(screenbuffer,(i*DATFILE_TILEMAP_SIZE) + DATFILE_START_TILEMAP + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
+
+  datfile.read(screenbuffer,mapAddress + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
   uint16_t* have_sprite_buf = (uint16_t*)screenbuffer + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
 
   memset(have_sprite_buf,0xFF,2*TILEMAPS_SPRITESPACE);
@@ -255,7 +286,7 @@ void setup(){
   // put your setup code here, to run once:
   //Serial.begin(19200);
   //while(!Serial);
-  //Serial.println("blah");
+  //Serial.println("Starting game...");
   GB_Fat sd;
   gb.begin();
   gb.setFrameRate(40);
@@ -306,11 +337,9 @@ void drawScreen(){
   player.draw();
   for(byte i = 0;i < MAX_NUM_ENEMIES;i++){
     if(enemies[i]!=NULL){
-      enemies[i]->update();
       enemies[i]->draw();
     }
   }
-  gb.display.update();
 }
 
 void loop(){
@@ -326,8 +355,10 @@ void loop(){
         }
       }
     }else{
-      loadTilemap(currentMap);
-      player.focusCam();
+      if(exitTilemap()){
+        loadTilemap(currentMap);
+        player.focusCam();
+      }
     }
   }
 }
