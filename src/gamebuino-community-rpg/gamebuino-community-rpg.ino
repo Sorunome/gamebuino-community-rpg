@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
-#define ENABLE_SOUND 1
+#define ENABLE_SOUND 0
 
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
@@ -155,7 +155,7 @@ bool exitTilemap(){
   uint8_t i;
   datfile.read(&i,mapAddress,1);
   if(i&1){ // we have an exit script!
-    script.cursor = mapAddress + DATFILE_TILEMAP_SIZE;
+    datfile.read((byte*)&(script.cursor),mapAddress + DATFILE_TILEMAP_SIZE + 4,4);
     return script.run();
   }
   return true;
@@ -196,21 +196,16 @@ void loadTilemap(uint8_t num){
     }
     i += 5; // 5 = 1 + 4; 4 - address, 1 - tilemap num
   }
-  if(num == TILEMAP_2){
-    for(byte j = 0;j < MAX_NUM_ENEMIES;j++){ // delete all the enemies
-      addEnemy(3,1);
-    }
-  }
 
   // get the expanded tilemap into the screebnuffer
-  datfile.read(screenbuffer,mapAddress + DATFILE_TILEMAPS_HEADER_SIZE,DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE);
+  datfile.read(screenbuffer,mapAddress,DATFILE_TILEMAP_SIZE);
 
   // this buffer is used to keep track of which sprites were already loaded and which new ID they have, 0xFF means an empty slot
-  uint16_t* have_sprite_buf = (uint16_t*)screenbuffer + DATFILE_TILEMAP_SIZE - DATFILE_TILEMAPS_HEADER_SIZE;
+  uint16_t* have_sprite_buf = (uint16_t*)screenbuffer + DATFILE_TILEMAP_SIZE;
   memset(have_sprite_buf,0xFF,2*TILEMAPS_SPRITESPACE);
 
   // just give it a different name for easier understanding
-  uint16_t* tmptilemapbuf = (uint16_t*)screenbuffer;
+  uint16_t* tmptilemapbuf = (uint16_t*)(screenbuffer+DATFILE_TILEMAPS_HEADER_SIZE);
 
   // we cannot use tmpsprite for this as we need a 17-byte buffer (1-byte for walking information), fortunatly the screen buffer is large enough
   byte* tmpsprite = (uint8_t*)have_sprite_buf + (2*TILEMAPS_SPRITESPACE);
@@ -252,6 +247,14 @@ void loadTilemap(uint8_t num){
         }
       }
     }
+  }
+  if(screenbuffer[0]&0x02){ // we have the header byte in here!
+    // we need to run a start script!
+
+    // we are using a custom script object as this may be called within another script, resulting in the cursor etc. being off
+    Script tempscript;
+    datfile.read((byte*)&(tempscript.cursor),mapAddress + DATFILE_TILEMAP_SIZE,4);
+    tempscript.run();
   }
 }
 

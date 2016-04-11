@@ -3,6 +3,7 @@
 #define SCRIPT_FADE_FROM_WHITE 0x02
 #define SCRIPT_SET_MAP 0x03
 #define SCRIPT_TEXT 0x04
+#define SCRIPT_ADD_ENEMY 0x05
 #define SCRIPT_FOCUS_CAM 0x06
 #define SCRIPT_UPDATE_SCREEN 0x07
 #define SCRIPT_SET_VAR 0x08
@@ -115,7 +116,7 @@ bool Script::run(){
   }
   j = 0xFF;
   cursor_loaded = 0;
-  drawScreen();
+  //drawScreen();
   while(true){
     readProg(&i,1);
     cursor++;
@@ -140,6 +141,13 @@ bool Script::run(){
         continue;
       case SCRIPT_TEXT:
         dispText();
+        continue;
+      case SCRIPT_ADD_ENEMY:
+        getNum(&i);
+        i = addEnemy(i);
+        getNum((byte*)&(enemies[i]->x));
+        getNum((byte*)&(enemies[i]->y));
+
         continue;
       case SCRIPT_FOCUS_CAM:
         player.focusCam();

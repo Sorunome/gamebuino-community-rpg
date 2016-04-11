@@ -275,6 +275,13 @@ class Parser{
 					return '04'.bin2hex($s).'ff';
 				}
 			],
+			'add_enemy' => [
+				'args_min' => 3,
+				'args_max' => 3,
+				'fn' => function($args){
+					return '05'.$this->getVar($args[0]).$this->getVar($args[1]).$this->getVar($args[2]);
+				}
+			],
 
 			'hex' => [
 				'args_min' => 1,
@@ -578,7 +585,7 @@ $tilemapslut = '';
 $tilemapslutlut = '';
 $asmMapId = -1; // will be increased to zero
 $genericAddressPrefix = 0;
-foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript` FROM `tilemaps` ORDER BY `mapId` ASC",[]) as $t){
+foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript`,`entryScript` FROM `tilemaps` ORDER BY `mapId` ASC",[]) as $t){
 	if($t['mapId'] != $oldMapId){
 		$asmMapId++;
 		$tilemapslutlut .= "put_address(++world#$asmMapId++)\n";
@@ -603,6 +610,9 @@ foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript` FROM
 	if(trim($t['exitScript'])){
 		$header |= 1;
 	}
+	if(trim($t['entryScript'])){
+		$header |= 2;
+	}
 
 	$s = dechexpad2($header);
 	
@@ -615,9 +625,21 @@ foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript` FROM
 	}
 
 	$tilemaps .= "hex($s)\n";
+	if(trim($t['entryScript'])){
+		$tilemaps .= "put_address(++tilemaps#$t[id]#entryscript++)\n";
+	}elseif(trim($t['exitScript'])){
+		$tilemaps .= "hex(00000000)\n";
+	}
+	if(trim($t['exitScript'])){
+		$tilemaps .= "put_address(++tilemaps#$t[id]#exitscript++)\n";
+	}
+	if(trim($t['entryScript'])){
+		$genericAddressPrefix++;
+		$tilemaps .= "label(++tilemaps#$t[id]#entryscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[entryScript]\nclear_vars\nset_address_prefix()\n";
+	}
 	if(trim($t['exitScript'])){
 		$genericAddressPrefix++;
-		$tilemaps .= "set_address_prefix(##generic$genericAddressPrefix##)\n$t[exitScript]\nclear_vars\nset_address_prefix()\n";
+		$tilemaps .= "label(++tilemaps#$t[id]#exitscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[exitScript]\nclear_vars\nset_address_prefix()\n";
 	}
 
 }
