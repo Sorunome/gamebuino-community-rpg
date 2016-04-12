@@ -45,7 +45,7 @@ void Script::getVar() {
       ptr = (byte*)player.px;
       return;
     case SCRIPT_VAR_PLAYER_Y:
-      ptr = (byte*)&player.py;
+      ptr = (byte*)player.py;
       return;
     case SCRIPT_VAR_MAP:
       ptr = (byte*)&currentMap;
