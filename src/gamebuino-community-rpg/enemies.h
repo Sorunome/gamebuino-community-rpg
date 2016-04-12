@@ -12,7 +12,7 @@ class Enemy {
       x = cx;
       y = cy;
       
-      state = 4;
+      state = 5;
     }
     void update(){
       if(state == 5){ // standing still

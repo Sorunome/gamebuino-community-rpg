@@ -372,7 +372,9 @@ void setup(){
   //Serial.println("Starting game...");
   GB_Fat sd;
   gb.begin();
-  gb.setFrameRate(40); // it just looked smoother IMO
+
+  // no need as we save ram by modifying the library!
+  //gb.setFrameRate(40); // it just looked smoother IMO
 
   // TODO: Different displaying stuff while loading the card
   gb.display.clear();
