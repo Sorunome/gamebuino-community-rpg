@@ -200,7 +200,7 @@ void sprite_xor(byte data[], byte xx, byte yy){
   takes: none
   returns: none
 */
-void drawTilemap(){
+void drawTilemap(void){
   // OK, sorry, I do not remember how this is working, I just copypasted it off of my (sorunome) gb.display.tilemap thingy
   int8_t startDdx = (-camX) / 8;
   int8_t startDdy = (-camY) / 8;

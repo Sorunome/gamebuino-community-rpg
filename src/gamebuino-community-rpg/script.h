@@ -37,7 +37,7 @@ void setScreenContrast_unsafe(byte contrast){
   gb.display.command(PCD8544_FUNCTIONSET);
 }
 
-void Script::getVar() {
+void Script::getVar(void) {
   readProg(&i,1);
   cursor++;
   switch(i){
@@ -109,7 +109,7 @@ void Script::loadInTilemap(byte offset){
   }
 }
 
-bool Script::run(){
+bool Script::run(void){
   if(!cursor){
     gb.display.clear();
     return true;
@@ -208,7 +208,7 @@ bool Script::run(){
   }
 }
 
-bool Script::condition(){
+bool Script::condition(void){
   readProg(&i,1);
   cursor++;
   switch(i){
@@ -219,7 +219,7 @@ bool Script::condition(){
   }
 }
 
-void Script::drawTextBox(){
+void Script::drawTextBox(void){
   drawScreen();
   gb.display.setColor(BLACK);
   gb.display.drawFastHLine(4,31,76);
@@ -234,7 +234,7 @@ void Script::drawTextBox(){
   gb.display.setColor(BLACK);
 }
 
-void Script::dispText(){
+void Script::dispText(void){
   drawTextBox();
   j = 0;
   while(true){

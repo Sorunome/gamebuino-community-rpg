@@ -94,7 +94,7 @@ class Player {
             }else{
               x_temp = -1;
             }
-            switch(getWalkInfo((*px)+2,(*py)+4,4,4,x_temp,0)){
+            switch(getWalkInfo_x((*px)+2,(*py)+4,4,4,x_temp)){
               case FLAG_TILE_WALKABLE:
                 acceleration = 0xFF;
                 counter = 0;
@@ -169,7 +169,7 @@ class Player {
             }else{
               y_temp = -1;
             }
-            switch(getWalkInfo((*px)+2,(*py)+4,4,4,0,y_temp)){
+            switch(getWalkInfo_y((*px)+2,(*py)+4,4,4,y_temp)){
               case FLAG_TILE_WALKABLE:
                 acceleration = 0xFF;
                 counter = 0;
@@ -229,7 +229,7 @@ class Player {
             return false;
           }
           // check if we landed on ground
-          if(getWalkInfo((*px)+2,*py,4,4,0,1) <= FLAG_TILE_WALKABLE && getWalkInfo((*px)+2,(*py)+4,4,4,0,1) <= FLAG_TILE_WALKABLE){
+          if(getWalkInfo_y((*px)+2,*py,4,4,1) <= FLAG_TILE_WALKABLE && getWalkInfo_y((*px)+2,(*py)+4,4,4,1) <= FLAG_TILE_WALKABLE){
             status = PLAYER_STATUS_IDLE;
           }
           focusCam();

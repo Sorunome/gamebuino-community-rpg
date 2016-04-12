@@ -63,9 +63,16 @@ byte* screenbuffer = gb.display.getBuffer(); // allows for easier access, we use
 // we need to pre-declare a few functions
 void loadSong(uint16_t num);
 void loadTilemap(uint8_t num);
-byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy);
+byte getWalkInfo_x(int8_t x,int8_t y,byte w,byte h,int8_t dx);
+byte getWalkInfo_y(int8_t x,int8_t y,byte w,byte h,int8_t dy);
+byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy){
+  if(dx){
+    return getWalkInfo_x(x,y,w,h,dx);
+  }
+  return getWalkInfo_y(x,y,w,h,dy);
+}
 void moveCam(int8_t x,int8_t y);
-void drawScreen();
+void drawScreen(void);
 
 
 byte camX = 0; // camera x position
@@ -78,21 +85,21 @@ GB_File soundfile; // this file will hold the sound
 // we need to know what the script class looks already as we need to pre-decalre the script variable.
 class Script {
   int8_t vars[SCRIPT_NUM_VARS];
-  bool condition();
+  bool condition(void);
   byte i,j;
   byte* ptr;
   byte* ptr2;
-  void getVar();
+  void getVar(void);
   void readProg(byte* dst,byte size);
   void getNum(byte* var);
-  void dispText();
-  void drawTextBox();
+  void dispText(void);
+  void drawTextBox(void);
   public:
     uint32_t cursor;
     uint32_t cursor_loaded;
     uint32_t cursor_call;
     void loadInTilemap(byte offset);
-    bool run();
+    bool run(void);
 };
 Script script;
 // these files end with .h as the arduino ide does weired stuff with .cpp and they need to be inserted at the correct position
@@ -149,7 +156,7 @@ void loadSong(uint16_t num){
   takes: none
   returns: true if continue normally (load the next tilemap), false if it already loaded a tilemap
 */
-bool exitTilemap(){
+bool exitTilemap(void){
   if(!mapAddress){ // if there is no previous map just don't do anything
     return true;
   }
@@ -290,55 +297,61 @@ byte getFlagAt(int8_t x,int8_t y){
   takes: x,y,width,height,difference in x,difference in y
   returns: walking flag
 */
-byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy){
+byte getWalkInfo_x(int8_t x,int8_t y,byte w,byte h,int8_t dx){
+  if(!dx){
+    return FLAG_TILE_WALKABLE;
+  }
   byte tmp;
   w--; // this makes our lives easier, as we start counting at zero then
   h--;
-  if(dx){ // if we are moving in the x direction
-    x += dx;
-    if(dx > 0){ // we are moving right
-      if(x+w >= TILEMAP_WIDTH*8){
-        return FLAG_TILE_SCREENEND;
-      }
-      tmp = getFlagAt(x+w,y);
-      if(tmp <= FLAG_TILE_WALKABLE){
-        return getFlagAt(x+w,y+h);
-      }
-      return tmp;
-    }else{
-      if(x < 0){ // we are moving left
-        return FLAG_TILE_SCREENEND;
-      }
-      tmp = getFlagAt(x,y);
-      if(tmp <= FLAG_TILE_WALKABLE){
-        return getFlagAt(x,y+h);
-      }
-      return tmp;
+
+  x += dx;
+  if(dx > 0){ // we are moving right
+    if(x+w >= TILEMAP_WIDTH*8){
+      return FLAG_TILE_SCREENEND;
     }
-  }
-  if(dy){ // if we are moving in the y direction
-    y += dy;
-    if(dy > 0){ // we are moving down
-      if(y+h >= TILEMAP_HEIGHT*8){
-        return FLAG_TILE_SCREENEND;
-      }
-      tmp = getFlagAt(x,y+h);
-      if(tmp <= FLAG_TILE_WALKABLE){
-        return getFlagAt(x+w,y+h);
-      }
-      return tmp;
-    }else{
-      if(y < 0){ // we are moving up
-        return FLAG_TILE_SCREENEND;
-      }
-      tmp = getFlagAt(x,y);
-      if(tmp <= FLAG_TILE_WALKABLE){
-        return getFlagAt(x+w,y);
-      }
-      return tmp;
+    tmp = getFlagAt(x+w,y);
+    if(tmp <= FLAG_TILE_WALKABLE){
+      return getFlagAt(x+w,y+h);
     }
+    return tmp;
   }
-  return FLAG_TILE_WALKABLE;
+  if(x < 0){ // we are moving left
+    return FLAG_TILE_SCREENEND;
+  }
+  tmp = getFlagAt(x,y);
+  if(tmp <= FLAG_TILE_WALKABLE){
+    return getFlagAt(x,y+h);
+  }
+  return tmp;
+}
+byte getWalkInfo_y(int8_t x,int8_t y,byte w,byte h,int8_t dy){
+  if(!dy){
+    return FLAG_TILE_WALKABLE;
+  }
+  byte tmp;
+  w--; // this makes our lives easier, as we start counting at zero then
+  h--;
+
+  y += dy;
+  if(dy > 0){ // we are moving down
+    if(y+h >= TILEMAP_HEIGHT*8){
+      return FLAG_TILE_SCREENEND;
+    }
+    tmp = getFlagAt(x,y+h);
+    if(tmp <= FLAG_TILE_WALKABLE){
+      return getFlagAt(x+w,y+h);
+    }
+    return tmp;
+  }
+  if(y < 0){ // we are moving up
+    return FLAG_TILE_SCREENEND;
+  }
+  tmp = getFlagAt(x,y);
+  if(tmp <= FLAG_TILE_WALKABLE){
+    return getFlagAt(x+w,y);
+  }
+  return tmp;
 }
 
 /*
@@ -350,23 +363,24 @@ byte getWalkInfo(int8_t x,int8_t y,byte w,byte h,int8_t dx,int8_t dy){
   returns: none
 */
 void moveCam(int8_t x,int8_t y){
+  camX = x;
+  camY = y;
   if(x < 0){
     camX = 0;
-  }else if(x > (TILEMAP_WIDTH*8) - LCDWIDTH){
-    camX = (TILEMAP_WIDTH*8) - LCDWIDTH;
-  }else{
-    camX = x;
   }
+  if(x > (TILEMAP_WIDTH*8) - LCDWIDTH){
+    camX = (TILEMAP_WIDTH*8) - LCDWIDTH;
+  }
+
   if(y < 0){
     camY = 0;
-  }else if(y > (TILEMAP_HEIGHT*8) - LCDHEIGHT){
+  }
+  if(y > (TILEMAP_HEIGHT*8) - LCDHEIGHT){
     camY = (TILEMAP_HEIGHT*8) - LCDHEIGHT;
-  }else{
-    camY = y;
   }
 }
 
-void setup(){
+void setup(void){
   // put your setup code here, to run once:
   //Serial.begin(19200);
   //while(!Serial);
@@ -427,7 +441,7 @@ void setup(){
   takes: none
   returns: none
 */
-void drawScreen(){
+void drawScreen(void){
   gb.display.clear();
   drawTilemap();
   player.draw();
@@ -438,24 +452,23 @@ void drawScreen(){
   }
 }
 
-void loop(){
+void loop(void){
   // put your main code here, to run repeatedly:
-  if(gb.update()){
-    if(player.update()){
-      drawTilemap();
-      player.draw();
-      for(byte i = 0;i < MAX_NUM_ENEMIES;i++){
-        if(enemies[i]!=NULL){
-          enemies[i]->update();
-          enemies[i]->draw();
-        }
-      }
-    }else{
-      // if we are here the player left a tilemap, time to load a different one! (currentMap already got updated)
-      if(exitTilemap()){
-        loadTilemap(currentMap);
-        player.focusCam();
+  if(!gb.update()){
+    return;
+  }
+  if(player.update()){
+    drawTilemap();
+    player.draw();
+    for(byte i = 0;i < MAX_NUM_ENEMIES;i++){
+      if(enemies[i]!=NULL){
+        enemies[i]->update();
+        enemies[i]->draw();
       }
     }
+  }else if(exitTilemap()){
+    // if we are here the player left a tilemap, time to load a different one! (currentMap already got updated)
+    loadTilemap(currentMap);
+    player.focusCam();
   }
 }
