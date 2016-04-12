@@ -226,6 +226,7 @@ if(isset($_GET['edit'])){
 				<option value="2">Cliff (fall)</option>
 				<option value="3">Script</option>
 				<option value="4">Manual script</option>
+				<option value="5">Ice</option>
 			</select><br>Matrix: <table><tr><td><input type="checkbox" id="walkable_matrix_0"></td><td><input type="checkbox" id="walkable_matrix_1"></td></tr><tr><td><input type="checkbox" id="walkable_matrix_2"></td><td><input type="checkbox" id="walkable_matrix_3"></td></tr></table>
 			<button id="save">Save</button><button id="delete" style="float:right;">Delete</button><br>
 			<a href="sprites">&lt;&lt; Back</a>';
