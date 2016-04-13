@@ -62,19 +62,19 @@ class Player {
           // time to update the actual positions based on acceleration / velocity
           if(x_temp){
             vx += x_temp*acceleration;
-            vx += x_temp; // we actually want one more!
+            //vx += x_temp; // we actually want one more!
           }
           // we want to decellerate if we haven't moved or if we are moving in the opposite direction as velocity, else it would make no sense trying to stop like that
           if(!x_temp || (x_temp > 0 && vx < 0) || (x_temp < 0 && vx > 0)){
             if(vx > 0){
               vx -= acceleration;
-              vx--;
+              //vx--;
               if(vx < 0){
                 vx = 0;
               }
             }else if(vx < 0){
               vx += acceleration;
-              vx++;
+              //vx++;
               if(vx > 0){
                 vx = 0;
               }
@@ -124,7 +124,7 @@ class Player {
                 }
                 script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4) / 8)*TILEMAP_WIDTH));
                 if(!script.run()){
-                  return false;
+                  WALL_X();
                 }
                 break;
               default:
@@ -137,19 +137,19 @@ class Player {
 
           if(y_temp){
             vy += y_temp*acceleration;
-            vy += y_temp; // we actually want one more!
+            //vy += y_temp; // we actually want one more!
           }
           // we want to decellerate if we haven't moved or if we are moving in the opposite direction as velocity, else it would make no sense trying to stop like that
           if(!y_temp || (y_temp > 0 && vy < 0) || (y_temp < 0 && vy > 0)){
             if(vy > 0){
               vy -= acceleration;
-              vy--;
+              //vy--;
               if(vy < 0){
                 vy = 0;
               }
             }else if(vy < 0){
               vy += acceleration;
-              vy++;
+              //vy++;
               if(vy > 0){
                 vy = 0;
               }
@@ -209,7 +209,7 @@ class Player {
                 }
                 script.loadInTilemap((((*px)+2) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
                 if(!script.run()){
-                  return false;
+                  WALL_Y();
                 }
                 break;
               default:
