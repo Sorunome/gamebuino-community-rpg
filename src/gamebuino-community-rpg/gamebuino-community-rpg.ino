@@ -140,7 +140,7 @@ void loadSong(uint16_t num){
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*5), screenbuffer+128);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*6), screenbuffer+128*2);
   write_flash_page((const char*)(SOUNDBUFFER_OFFSET+128*7), screenbuffer+128*3);
-  
+
   gb.sound.playTrack(0); // now start the tracks again, no need to specify where the buffer is as this is hardcoded
   gb.sound.playTrack(1);
   //gb.sound.playTrack((const uint16_t *)(SOUNDBUFFER_OFFSET),0);
@@ -405,7 +405,7 @@ void setup(void){
   gb.display.clear();
   gb.display.println(F("Searching for file card..."));
   gb.display.update();
-  
+
   soundfile = sd.open("SOUND.DAT", screenbuffer);
   if(!soundfile.exists()){
     gb.display.clear();
@@ -420,7 +420,7 @@ void setup(void){
     gb.display.update();
     while(1);
   }
-  
+
   loadTilemap(currentMap);
   gb.display.clear();
   gb.display.println(F("SD card found."));
@@ -428,7 +428,7 @@ void setup(void){
 
   //gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 0);
   //gb.sound.changePatternSet((const uint16_t* const*)(SOUNDBUFFER_OFFSET+80), 1);
-  
+
   loadSong(0);
   //gb.display.setContrast(gb.display.contrast);
 }

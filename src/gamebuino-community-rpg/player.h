@@ -20,19 +20,9 @@ class Player {
         case PLAYER_STATUS_IDLE:
           if(gb.buttons.pressed(BTN_A)){
             // A is pressed! determine what to do
-            switch(direction){
-              case 0:
-                x_temp = 1;
-                break;
-              case 1:
-                y_temp = -1;
-                break;
-              case 2:
-                x_temp = -1;
-                break;
-              case 3:
-                y_temp = 1;
-            }
+            x_temp = (!direction)-(direction==2);
+            y_temp = (direction==3)-(direction==1);
+
             if(getWalkInfo((*px)+2,(*py)+4,4,4,x_temp,y_temp)==FLAG_TILE_MANUAL_SCRIPT){
               // we need to run a script
               if(x_temp > 0){
@@ -58,33 +48,33 @@ class Player {
             direction = (1+x_temp)*(x_temp != 0);
             direction = (2+y_temp)*(y_temp != 0 || direction == 0);
           }
-          
+
           // time to update the actual positions based on acceleration / velocity
           if(x_temp){
             vx += x_temp*acceleration;
-            //vx += x_temp; // we actually want one more!
+            vx += x_temp; // we actually want one more!
+            if(vx > 0x100){
+              vx = 0x100;
+            }
+            if(vx < -0x100){
+              vx = -0x100;
+            }
           }
           // we want to decellerate if we haven't moved or if we are moving in the opposite direction as velocity, else it would make no sense trying to stop like that
           if(!x_temp || (x_temp > 0 && vx < 0) || (x_temp < 0 && vx > 0)){
             if(vx > 0){
               vx -= acceleration;
-              //vx--;
+              vx--;
               if(vx < 0){
                 vx = 0;
               }
             }else if(vx < 0){
               vx += acceleration;
-              //vx++;
+              vx++;
               if(vx > 0){
                 vx = 0;
               }
             }
-          }
-          if(vx > 0x100){
-            vx = 0x100;
-          }
-          if(vx < -0x100){
-            vx = -0x100;
           }
 
 
@@ -104,7 +94,7 @@ class Player {
                 counter = 0;
                 break;
               case FLAG_TILE_ICE:
-                acceleration = 5;
+                acceleration = 4;
                 counter = 0;
                 break;
               case FLAG_TILE_SCREENEND:
@@ -124,7 +114,8 @@ class Player {
                 }
                 script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4) / 8)*TILEMAP_WIDTH));
                 if(!script.run()){
-                  WALL_X();
+                  vx = vy = 0;
+                  return true;
                 }
                 break;
               default:
@@ -134,32 +125,31 @@ class Player {
           }
           x += vx;
           
-
           if(y_temp){
             vy += y_temp*acceleration;
-            //vy += y_temp; // we actually want one more!
+            vy += y_temp; // we actually want one more!
+            if(vy > 0x100){
+              vy = 0x100;
+            }
+            if(vy < -0x100){
+              vy = -0x100;
+            }
           }
           // we want to decellerate if we haven't moved or if we are moving in the opposite direction as velocity, else it would make no sense trying to stop like that
           if(!y_temp || (y_temp > 0 && vy < 0) || (y_temp < 0 && vy > 0)){
             if(vy > 0){
               vy -= acceleration;
-              //vy--;
+              vy--;
               if(vy < 0){
                 vy = 0;
               }
             }else if(vy < 0){
               vy += acceleration;
-              //vy++;
+              vy++;
               if(vy > 0){
                 vy = 0;
               }
             }
-          }
-          if(vy > 0x100){
-            vy = 0x100;
-          }
-          if(vy < -0x100){
-            vy = -0x100;
           }
 
 
@@ -179,7 +169,7 @@ class Player {
                 counter = 0;
                 break;
               case FLAG_TILE_ICE:
-                acceleration = 5;
+                acceleration = 4;
                 counter = 0;
                 break;
               case FLAG_TILE_SCREENEND:
@@ -209,7 +199,8 @@ class Player {
                 }
                 script.loadInTilemap((((*px)+2) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
                 if(!script.run()){
-                  WALL_Y();
+                  vx = vy = 0;
+                  return true;
                 }
                 break;
               default:
