@@ -19,9 +19,6 @@
 #define FLAG_TILE_MANUAL_SCRIPT 6
 #define FLAG_TILE_ICE 7
 
-#define PLAYER_STATUS_IDLE 0
-#define PLAYER_STATUS_FALL 1
-
 #define ANIMATION_FREQUENCY 500 // ms
 #define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
 #define SOUNDBUFFER_OFFSET (231 * 128)
@@ -382,9 +379,9 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(void){
 	// put your setup code here, to run once:
-	//Serial.begin(19200);
-	//while(!Serial);
-	//Serial.println("Starting game...");
+	Serial.begin(19200);
+	while(!Serial);
+	Serial.println("Starting game...");
 	GB_Fat sd;
 	gb.begin();
 

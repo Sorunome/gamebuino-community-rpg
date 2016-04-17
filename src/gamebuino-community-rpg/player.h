@@ -1,3 +1,9 @@
+#define PLAYER_STATUS_IDLE 0
+#define PLAYER_STATUS_FALL 1
+#define PLAYER_STATUS_SWORD 2
+#define PLAYER_STATUS_SWORD_SPIN 3
+#define PLAYER_STATUS_SWORD_SPIN_DO 4
+
 #define WALL_X() x+=vx;vx=-vx;
 #define WALL_Y() y+=vy;vy=-vy;
 
@@ -22,17 +28,20 @@ class Player {
 						// A is pressed! determine what to do
 						x_temp = (!direction)-(direction==2);
 						y_temp = (direction==3)-(direction==1);
-
-						if(getWalkInfo((*px)+2,(*py)+4,4,4,x_temp,y_temp)==FLAG_TILE_MANUAL_SCRIPT){
-							// we need to run a script
-							if(x_temp > 0){
-								x_temp = 4;
-							}
-							if(y_temp > 0){
-								y_temp = 4;
-							}
-							script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
-							return script.run();
+						
+						switch (getWalkInfo((*px)+2,(*py)+4,4,4,x_temp,y_temp)) {
+							case FLAG_TILE_MANUAL_SCRIPT:
+								if(x_temp > 0){
+									x_temp = 4;
+								}
+								if(y_temp > 0){
+									y_temp = 4;
+								}
+								script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
+								return script.run();
+							default:
+								counter = 0;
+								status = PLAYER_STATUS_SWORD_SPIN;
 						}
 						break;
 					}
@@ -224,7 +233,33 @@ class Player {
 						status = PLAYER_STATUS_IDLE;
 					}
 					focusCam();
-					//break; // no need as it's the last one in the case-block
+					break;
+				case PLAYER_STATUS_SWORD:
+				case PLAYER_STATUS_SWORD_SPIN:
+					counter++;
+					if(!gb.buttons.pressed(BTN_A)){
+						status = PLAYER_STATUS_SWORD;
+					}
+					if(counter < 20){
+						Serial.println("Sword activated");
+					}else if(counter > 20*3){
+						counter = 0;
+						if(status == PLAYER_STATUS_SWORD_SPIN){
+							status = PLAYER_STATUS_SWORD_SPIN_DO;
+						}else{
+							status = PLAYER_STATUS_IDLE;
+						}
+					}
+					break;
+				case PLAYER_STATUS_SWORD_SPIN_DO:
+					if(gb.buttons.pressed(BTN_A)){
+						Serial.println("Spin attack");
+					}else{
+						Serial.println("Spin attack activated");
+						counter = 0;
+						status = PLAYER_STATUS_IDLE;
+					}
+					break;
 			}
 			return true;
 		}
