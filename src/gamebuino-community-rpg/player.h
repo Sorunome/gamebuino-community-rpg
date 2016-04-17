@@ -2,7 +2,8 @@
 #define PLAYER_STATUS_FALL 1
 #define PLAYER_STATUS_SWORD 2
 #define PLAYER_STATUS_SWORD_SPIN 3
-#define PLAYER_STATUS_SWORD_SPIN_DO 4
+#define PLAYER_STATUS_SWORD_SPIN_DO_WAIT 4
+#define PLAYER_STATUS_SWORD_SPIN_DO 5
 
 #define WALL_X() x+=vx;vx=-vx;
 #define WALL_Y() y+=vy;vy=-vy;
@@ -41,6 +42,7 @@ class Player {
 								return script.run();
 							default:
 								counter = 0;
+								animation = 2;
 								status = PLAYER_STATUS_SWORD_SPIN;
 						}
 						break;
@@ -236,27 +238,42 @@ class Player {
 					break;
 				case PLAYER_STATUS_SWORD:
 				case PLAYER_STATUS_SWORD_SPIN:
-					counter++;
 					if(!gb.buttons.pressed(BTN_A)){
 						status = PLAYER_STATUS_SWORD;
 					}
-					if(counter < 20){
-						Serial.println("Sword activated");
-					}else if(counter > 20*3){
+					if(++counter >= 20){
 						counter = 0;
 						if(status == PLAYER_STATUS_SWORD_SPIN){
+							status = PLAYER_STATUS_SWORD_SPIN_DO_WAIT;
+						}else{
+							animation = 0;
+							status = PLAYER_STATUS_IDLE;
+						}
+					}
+					break;
+				case PLAYER_STATUS_SWORD_SPIN_DO_WAIT:
+					if(gb.buttons.pressed(BTN_A)){
+						if(++counter >= 12+6){
+							counter = 12;
+						}
+					}else{
+						if(counter >= 12){
+							counter = 0;
 							status = PLAYER_STATUS_SWORD_SPIN_DO;
 						}else{
+							counter = 0;
+							animation = 0;
 							status = PLAYER_STATUS_IDLE;
 						}
 					}
 					break;
 				case PLAYER_STATUS_SWORD_SPIN_DO:
-					if(gb.buttons.pressed(BTN_A)){
-						Serial.println("Spin attack");
-					}else{
-						Serial.println("Spin attack activated");
-						counter = 0;
+					if(!(counter++%6)){
+						direction++;
+						direction %= 4;
+					}
+					if(counter >= 4*6){
+						animation = 0;
 						status = PLAYER_STATUS_IDLE;
 					}
 					break;
@@ -268,7 +285,31 @@ class Player {
 			moveCam((*px) - (LCDWIDTH / 2), (*py) - (LCDHEIGHT / 2));
 		}
 		void draw(){
-			memcpy_P(tmpsprite,charset_player+(direction*24*2+animation*8*2),16);
+			switch(status){
+				case PLAYER_STATUS_SWORD:
+				case PLAYER_STATUS_SWORD_SPIN:
+					memcpy_P(tmpsprite,charset_sword+(direction*24*2+(counter<5)*16*2),16);
+					sprite_masked(tmpsprite,
+						*px + 8*(direction==0) - 8*(direction==2) + ((counter < 5)*(8*(direction==1)-8*(direction==3))),
+						*py + 8*(direction==3) - 8*(direction==1) + ((counter < 5)*(8*(direction==0) - 8*(direction==2)))
+					);
+					break;
+				case PLAYER_STATUS_SWORD_SPIN_DO_WAIT:
+					memcpy_P(tmpsprite,charset_sword+(direction*24*2+(counter>=12)*((counter%6) >= 3)*16),16);
+					sprite_masked(tmpsprite,
+						*px + 8*(direction==0) - 8*(direction==2),
+						*py + 8*(direction==3) - 8*(direction==1)
+					);
+					break;
+				case PLAYER_STATUS_SWORD_SPIN_DO:
+					memcpy_P(tmpsprite,charset_sword+(direction*24*2+((counter%6)<3)*16*2),16);
+					sprite_masked(tmpsprite,
+						*px + 8*(direction==0) - 8*(direction==2) + (((counter%6) < 3)*(8*(direction==1)-8*(direction==3))),
+						*py + 8*(direction==3) - 8*(direction==1) + (((counter%6) < 3)*(8*(direction==0)-8*(direction==2)))
+					);
+					break;
+			}
+			memcpy_P(tmpsprite,charset_player+(direction*24*2+(animation&2)*8*2),16);
 			sprite_masked(tmpsprite, *px, *py);
 		}
 };
