@@ -42,10 +42,10 @@ void Script::getVar(void) {
 	cursor++;
 	switch(i){
 		case SCRIPT_VAR_PLAYER_X:
-			ptr = (byte*)player.px;
+			ptr = ((byte*)(&player.x)) + 1;
 			return;
 		case SCRIPT_VAR_PLAYER_Y:
-			ptr = (byte*)player.py;
+			ptr = ((byte*)(&player.y)) + 1;
 			return;
 		case SCRIPT_VAR_MAP:
 			ptr = (byte*)&currentMap;

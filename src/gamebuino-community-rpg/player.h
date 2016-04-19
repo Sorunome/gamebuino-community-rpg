@@ -10,29 +10,29 @@
 #define WALL_Y() y+=vy;vy=-vy;
 #define NOMOVE() x_temp=y_temp=0;
 
+#define PX (*(((int8_t*)&x)+1))
+#define PY (*(((int8_t*)&y)+1))
+
 class Player {
 	byte direction = 3; // 0 = right, 1 = up, 2 = left, 3 = down
 	byte animation = 0;
 	byte counter = 0;
 	byte status = PLAYER_STATUS_IDLE;
 	int8_t calcSwordX(bool cond){
-		return *px + (cond?6:8)*(direction==0) - (cond?6:8)*(direction==2) + (cond*(6*(direction==1) - 6*(direction==3)));
+		return PX + (cond?6:8)*(direction==0) - (cond?6:8)*(direction==2) + (cond*(6*(direction==1) - 6*(direction==3)));
 	}
 	int8_t calcSwordY(bool cond){
-		return *py + (cond?6:8)*(direction==3) - (cond?6:8)*(direction==1) + (cond*(6*(direction==0) - 6*(direction==2)));
+		return PY + (cond?6:8)*(direction==3) - (cond?6:8)*(direction==1) + (cond*(6*(direction==0) - 6*(direction==2)));
 	}
-	int8_t x_temp,y_temp;
 	public:
 		int16_t x=16*0x100,y=16*0x100;
-		int8_t* px=((int8_t*)&x)+1;
-		int8_t* py=((int8_t*)&y)+1;
 		int16_t vx = 0;
 		int16_t vy = 0;
 		uint8_t acceleration = 0xFF;
 		bool update(){
 			// get the x and y offsets (the way we want to move)
-			x_temp = -gb.buttons.pressed(BTN_LEFT)+gb.buttons.pressed(BTN_RIGHT);
-			y_temp = -gb.buttons.pressed(BTN_UP)+gb.buttons.pressed(BTN_DOWN);
+			int8_t x_temp = -gb.buttons.pressed(BTN_LEFT)+gb.buttons.pressed(BTN_RIGHT);
+			int8_t y_temp = -gb.buttons.pressed(BTN_UP)+gb.buttons.pressed(BTN_DOWN);
 			
 			switch(status){
 				case PLAYER_STATUS_IDLE:
@@ -41,7 +41,7 @@ class Player {
 						x_temp = (!direction)-(direction==2);
 						y_temp = (direction==3)-(direction==1);
 						
-						switch (getWalkInfo((*px)+2,(*py)+4,4,4,x_temp,y_temp)) {
+						switch (getWalkInfo(PX+2,PY+4,4,4,x_temp,y_temp)) {
 							case FLAG_TILE_MANUAL_SCRIPT:
 								if(x_temp > 0){
 									x_temp = 4;
@@ -49,7 +49,7 @@ class Player {
 								if(y_temp > 0){
 									y_temp = 4;
 								}
-								script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
+								script.loadInTilemap(((PX+2+x_temp) / 8) + (((PY+4+y_temp) / 8)*TILEMAP_WIDTH));
 								return script.run();
 							default:
 								counter = 0;
@@ -79,15 +79,15 @@ class Player {
 					NOMOVE();
 					return true;
 				case PLAYER_STATUS_FALL:
-					(*py)++; // we fall DOWN
-					if((*py) > (TILEMAP_HEIGHT*8) - 8){
+					y += 0x100; // we fall DOWN
+					if(PY > (TILEMAP_HEIGHT*8) - 8){
 						// we need to load a new map!
 						currentMap += DATFILE_TILEMAPS_WIDTH;
 						y = (-4)*0x100;
 						return false;
 					}
 					// check if we landed on ground
-					if(getWalkInfo_y((*px)+2,*py,4,4,1) <= FLAG_TILE_WALKABLE && getWalkInfo_y((*px)+2,(*py)+4,4,4,1) <= FLAG_TILE_WALKABLE){
+					if(getWalkInfo_y(PX+2,PY,4,4,1) <= FLAG_TILE_WALKABLE && getWalkInfo_y(PX+2,PY+4,4,4,1) <= FLAG_TILE_WALKABLE){
 						status = PLAYER_STATUS_IDLE;
 					}
 					focusCam();
@@ -173,7 +173,7 @@ class Player {
 				}else{
 					x_temp = -1;
 				}
-				switch(getWalkInfo_x((*px)+2,(*py)+4,4,4,x_temp)){
+				switch(getWalkInfo_x(PX+2,PY+4,4,4,x_temp)){
 					case FLAG_TILE_WALKABLE:
 						acceleration = 0xFF;
 						break;
@@ -197,7 +197,7 @@ class Player {
 						if(x_temp > 0){
 							x_temp = 4;
 						}
-						script.loadInTilemap((((*px)+2+x_temp) / 8) + ((((*py)+4) / 8)*TILEMAP_WIDTH));
+						script.loadInTilemap(((PX+2+x_temp) / 8) + ((PY+4) / 8)*TILEMAP_WIDTH);
 						if(!script.run()){
 							vx = vy = 0;
 							return true;
@@ -245,7 +245,7 @@ class Player {
 				}else{
 					y_temp = -1;
 				}
-				switch(getWalkInfo_y((*px)+2,(*py)+4,4,4,y_temp)){
+				switch(getWalkInfo_y(PX+2,PY+4,4,4,y_temp)){
 					case FLAG_TILE_WALKABLE:
 						acceleration = 0xFF;
 						break;
@@ -276,7 +276,7 @@ class Player {
 						if(y_temp > 0){
 							y_temp = 4;
 						}
-						script.loadInTilemap((((*px)+2) / 8) + ((((*py)+4+y_temp) / 8)*TILEMAP_WIDTH));
+						script.loadInTilemap(((PX+2) / 8) + (((PY+4+y_temp) / 8)*TILEMAP_WIDTH));
 						if(!script.run()){
 							vx = vy = 0;
 							return true;
@@ -295,7 +295,7 @@ class Player {
 		}
 		void focusCam(){
 			// this just focuses the cam onto the player
-			moveCam((*px) - (LCDWIDTH / 2), (*py) - (LCDHEIGHT / 2));
+			moveCam(PX - (LCDWIDTH / 2), PY - (LCDHEIGHT / 2));
 		}
 		void draw(){
 			switch(status){
@@ -307,8 +307,8 @@ class Player {
 				case PLAYER_STATUS_SWORD_SPIN_DO_WAIT:
 					memcpy_P(tmpsprite,charset_sword+(direction*24*2+(counter>=12)*((counter%6) >= 3)*16),16);
 					sprite_masked(tmpsprite,
-						*px + 8*(direction==0) - 8*(direction==2),
-						*py + 8*(direction==3) - 8*(direction==1)
+						PX + 8*(direction==0) - 8*(direction==2),
+						PY + 8*(direction==3) - 8*(direction==1)
 					);
 					break;
 				case PLAYER_STATUS_SWORD_SPIN_DO:
@@ -317,7 +317,7 @@ class Player {
 					break;
 			}
 			memcpy_P(tmpsprite,charset_player+(direction*24*2+(animation)*8*2),16);
-			sprite_masked(tmpsprite, *px, *py);
+			sprite_masked(tmpsprite, PX, PY);
 		}
 };
 Player player;
