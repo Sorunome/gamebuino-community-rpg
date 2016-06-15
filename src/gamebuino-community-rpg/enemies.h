@@ -60,8 +60,12 @@ class Enemy {
 			}
 		}
 		void draw(void){
-			memcpy_P(tmpsprite,charset_enemy,16); // copy the sprite to RAM and display it
-			sprite_masked(tmpsprite, x, y);
+			switch(type){
+				case 0:
+					memcpy_P(tmpsprite,charset_enemy,16); // copy the sprite to RAM and display it
+					sprite_masked(tmpsprite, x, y);
+					break;
+			}
 		}
 };
 Enemy *enemies[MAX_NUM_ENEMIES];

@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <GB_Fat.h>
 
-#define ENABLE_SOUND 0
+#define ENABLE_SOUND 1
 
 #define TILEMAP_WIDTH 12
 #define TILEMAP_HEIGHT 8
