@@ -87,5 +87,5 @@ byte addEnemy(byte type,byte x = 0,byte y = 0){
 			return i;
 		}
 	}
-	return -1;
+	return 0xFF;
 }

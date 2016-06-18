@@ -145,9 +145,10 @@ bool Script::run(void){
 			case SCRIPT_ADD_ENEMY:
 				getNum(&i);
 				i = addEnemy(i);
-				getNum((byte*)&(enemies[i]->x));
-				getNum((byte*)&(enemies[i]->y));
-
+				if(i != 0xFF){
+					getNum((byte*)&(enemies[i]->x));
+					getNum((byte*)&(enemies[i]->y));
+				}
 				continue;
 			case SCRIPT_FOCUS_CAM:
 				player.focusCam();
