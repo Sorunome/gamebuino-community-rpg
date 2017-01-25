@@ -257,7 +257,11 @@ if(isset($_GET['edit'])){
 			margin:0;
 			padding:0;
 		}
-		#spritesCont > a > img {
+		#spritesCont > a > .img {
+			display:inline-block;
+			width:32px;
+			height:32px;
+			background-image:url("/gamebuino-rpg/disp?spritesheet&amp;scale=4&amp;'.time().'");
 			border:1px solid red;
 			margin:0;
 			padding:0;
@@ -267,7 +271,7 @@ if(isset($_GET['edit'])){
 	
 	$sprites = $sql->query("SELECT `id` FROM `sprites` WHERE 1");
 	foreach($sprites as $s){
-		$html .= '<a href="?edit='.$s['id'].'"><img src="disp?sprite='.$s['id'].'"></a>';
+		$html .= '<a href="/gamebuino-rpg/sprites?edit='.$s['id'].'"><div class="img" style="background-position:-'.(8*4*($s['id'] % 15)).'px -'.(8*4*floor($s['id'] / 15)).'px"></div></a>';
 	}
 	$html .='</div><hr>
 	<a href="?new">New</a><br>

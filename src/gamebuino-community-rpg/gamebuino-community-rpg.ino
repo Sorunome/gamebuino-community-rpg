@@ -406,9 +406,9 @@ void moveCam(int8_t x,int8_t y){
 
 void setup(void){
 	// put your setup code here, to run once:
-	//Serial.begin(19200);
-	//while(!Serial);
-	//Serial.println("Starting game...");
+	Serial.begin(19200);
+	while(!Serial);
+	Serial.println("Starting game...");
 	GB_Fat sd;
 	gb.begin();
 

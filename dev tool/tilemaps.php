@@ -229,6 +229,19 @@ if(isset($_GET['getData'])){
 						x = <?php echo ($vars->get('map'.(int)$_GET['edit'].'_curx') | 0) ?>,
 						y = <?php echo ($vars->get('map'.(int)$_GET['edit'].'_cury') | 0) ?>,
 						mapId = <?php echo (int)$_GET['edit'];?>,
+						spriteSheetURL = 'disp.php?spritesheet&scale=4&<?=time()?>',
+						getTilePosition = function(id){
+							return '-'+(8*4*(id % 15)).toString()+'px -'+(8*4*Math.floor(id / 15)).toString()+'px';
+						},
+						getTileElem = function(id){
+							return $('<div>').css({
+								display:'inline-block',
+								width:8*4,
+								height:8*4,
+								backgroundImage:'url("'+$('<span>').text(spriteSheetURL).html()+'")',
+								backgroundPosition:getTilePosition(id)
+							}).addClass('img');
+						},
 						loadTileMap = function(){
 							homepage.get('tilemaps.php?getData='+mapId.toString(10)+'&x='+x.toString(10)+'&y='+y.toString(10),function(data){
 								tilemap = data.map;
@@ -238,8 +251,7 @@ if(isset($_GET['getData'])){
 								area = data.area;
 								$('#tilemap').empty().append(
 									$.map(tilemap,function(tile,i){
-										return $('<img>')
-											.attr('src','disp.php?scale=4&sprite='+tile.toString(10))
+										return getTileElem(tile)
 											.data('id',i)
 											.click(function(e){
 												if(!$('#toggleDynTiles').data('show') && !$('#toggleEventTiles').data('show')){
@@ -258,7 +270,7 @@ if(isset($_GET['getData'])){
 													var i = $(this).data('id');
 													e.preventDefault();
 													tilemap[i] = curSprite;
-													$(this).attr('src','disp.php?scale=4&sprite='+curSprite.toString(10));
+													$(this).css('background-position',getTilePosition(curSprite));
 													changed = true;
 												}
 											});
@@ -537,9 +549,8 @@ if(isset($_GET['getData'])){
 										.addClass('toggleContent')
 										.append(
 											$.map(spd.sprites,function(sp){
-												return $('<img>')
+												return getTileElem(sp)
 													.data('id',sp)
-													.attr('src','disp.php?scale=4&sprite='+sp.toString(10))
 													.click(function(e){
 														e.preventDefault();
 														setCurSprite($(this).data('id'));
