@@ -263,6 +263,9 @@ if(isset($_GET['getData'])){
 														}
 														spritesCounted.push(s);
 													}
+													if($.inArray(curSprite,spritesCounted)==-1){ // hypothetically add the new sprite
+														curspritespace += spritespace[curSprite];
+													}
 													if(curspritespace > 32){
 														alert('ERROR: too many different sprites on the same tilemap!');
 														return;
