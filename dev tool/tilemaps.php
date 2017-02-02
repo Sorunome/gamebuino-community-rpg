@@ -234,6 +234,13 @@ if(isset($_GET['getData'])){
 							return '-'+(8*4*(id % 15)).toString()+'px -'+(8*4*Math.floor(id / 15)).toString()+'px';
 						},
 						getTileElem = function(id){
+							if(id == -1){
+								return $('<div>').css({
+									display:'inline-block',
+									width:8*4,
+									height:8*4
+								});
+							}
 							return $('<div>').css({
 								display:'inline-block',
 								width:8*4,
@@ -553,9 +560,13 @@ if(isset($_GET['getData'])){
 										.append(
 											$.map(spd.sprites,function(sp){
 												return getTileElem(sp)
+													.css('border','1px solid red')
 													.data('id',sp)
 													.click(function(e){
 														e.preventDefault();
+														if($(this).data('id') == -1){
+															return;
+														}
 														setCurSprite($(this).data('id'));
 														curSprite = $(this).data('id');
 													})
@@ -765,4 +776,3 @@ if(isset($_GET['getData'])){
 	$sql->switchDb('soru_homepage');
 	echo $page->getPage('List Tilemaps',$html,$lang,$pathPartsParsed);
 }
-?>

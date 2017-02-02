@@ -279,4 +279,3 @@ if(isset($_GET['edit'])){
 	$sql->switchDb('soru_homepage');
 	echo $page->getPage('Sprites',$html,$lang,$pathPartsParsed);
 }
-?>

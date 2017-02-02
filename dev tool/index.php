@@ -7,6 +7,7 @@ $sql->switchDb('soru_gamebuino_rpg');
 include_once(realpath(dirname(__FILE__)).'/functions.php');
 $html = '<h1>Gamebuino RPG development tool</h1>'.
 	'<a href="sprites">Sprite editor</a><br>'.
+	'<a href="spritesheet">Spritesheet editor</a><br>'.
 	'<a href="tilemaps">Tilemap editor</a><br>'.
 	'<a href="masksprite">Masked sprite creator</a><br>'.
 	/*'<a href="enemy">Enemy editor</a><br>'.
