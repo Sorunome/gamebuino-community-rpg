@@ -1,8 +1,10 @@
 <?php
+/*
 if(!$security->isLoggedIn() || !($user_info['power']&128)){
 	echo $page->getPage('Nope','<script type="text/javascript">getPageJSON("/");</script>Redirecting...',$lang,$pathPartsParsed);
 	die();
 }
+*/
 $sql->switchDb('soru_gamebuino_rpg');
 include_once(realpath(dirname(__FILE__)).'/functions.php');
 ini_set('display_errors',1);
