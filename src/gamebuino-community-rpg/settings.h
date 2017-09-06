@@ -23,5 +23,6 @@
 
 #define NUM_CHANNELS 2
 
-
 #include "defines.h"
+
+#define TILEMAPS_DEFAULTMAP TILEMAP_9

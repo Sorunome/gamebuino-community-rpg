@@ -18,17 +18,6 @@ function dechexpad2($i,$num=2,$littleendian = false){
 	return $s;
 }
 
-function rotate_buffer_left($in){
-	$bin = hexstr2binstr($in);
-	$newbin = '';
-	for($i = 0;$i < 8;$i++){
-		for($j = 7;$j >= 0;$j--){
-			$newbin .= $bin[($j*8) + $i];
-		}
-	}
-	return binstr2hexstr($newbin);
-}
-
 class Parser{
 	private $bytes = 0;
 	private $variables = [];
@@ -472,7 +461,7 @@ class Parser{
 }
 $parser = new Parser();
 
-$sql->query("UPDATE `sprites` SET `in_use`=0 WHERE 1");
+//$sql->query("UPDATE `sprites` SET `in_use`=0 WHERE 1");
 $tilemaps = $sql->query("SELECT `data` FROM `tilemaps`",[]);
 $spritesInUse = [];
 foreach($tilemaps as $t){
@@ -483,9 +472,11 @@ foreach($tilemaps as $t){
 		}
 	}
 }
+/*
 foreach($spritesInUse as $s){
 	$sql->query("UPDATE `sprites` SET `in_use`=1,`asm_id`=0 WHERE `id`=%d",[$s]);
 }
+*/
 
 
 
@@ -499,7 +490,7 @@ foreach($sprites_inanimate as $s){
 	$s = $s['id'];
 	if($s!==NULL && in_array($s,$spritesInUse)){
 		$asmId = dechexpad2($idCounter,4);
-		$sql->query("UPDATE `sprites` SET `asm_id`='%s' WHERE `id`=%d",[$asmId,$s]);
+//		$sql->query("UPDATE `sprites` SET `asm_id`='%s' WHERE `id`=%d",[$asmId,$s]);
 		$spritesLUT[$s] = $asmId;
 		$idCounter++;
 		$spritesWithId[] = $s;
@@ -511,7 +502,7 @@ $defines['sprites_first_animated'] = $idCounter;
 foreach($spritesInUse as $s){
 	if(!in_array($s,$spritesWithId)){
 		$asmId = dechexpad2($idCounter,4);
-		$sql->query("UPDATE `sprites` SET `asm_id`='%s' WHERE `id`=%d",[$asmId,$s]);
+//		$sql->query("UPDATE `sprites` SET `asm_id`='%s' WHERE `id`=%d",[$asmId,$s]);
 		$spritesLUT[$s] = $asmId;
 		$idCounter++;
 		$spritesWithId[] = $s;
@@ -520,9 +511,33 @@ foreach($spritesInUse as $s){
 
 
 
+$mapIds = [];
+foreach($sql->query("SELECT `id` FROM `maps` WHERE `use`=1") as $m){
+	$mapIds[] = (int)$m['id'];
+}
 
+$mapDimensions = [
+	'width' => 0,
+	'minx' => 0,
+	'miny' => 0
+];
+foreach($mapIds as $m){
+	$mq = $sql->query("SELECT MIN(`x`) AS `minx`,MAX(`x`)-MIN(`x`)+1 AS `width`,MIN(`y`) AS `miny` FROM `tilemaps` WHERE `mapId`=%d",[(int)$m],0);
+	if((int)$mq['width'] > $mapDimensions['width']){
+		$mapDimensions['width'] = (int)$mq['width'];
+		$mapDimensions['minx'] = (int)$mq['minx'];
+		$mapDimensions['miny'] = (int)$mq['miny'];
+	}
+	$mapDimensions[$m] = [
+		'minx' => (int)$mq['minx'],
+		'miny' => (int)$mq['miny']
+	];
+}
+foreach($mapIds as $m){
+	$mapDimensions[$m]['ox'] = $mapDimensions[$m]['minx'] - $mapDimensions['minx'];
+	$mapDimensions[$m]['oy'] = $mapDimensions[$m]['miny'] - $mapDimensions['miny'];
+}
 
-$mapDimensions = $sql->query("SELECT MIN(`x`) AS `minx`,MAX(`x`)-MIN(`x`)+1 AS `width`,MIN(`y`) AS `miny` FROM `tilemaps`",[],0);
 
 $html = '<h1>Sprites</h1><textarea style="width:100%;height:500px;">';
 
@@ -583,66 +598,74 @@ $oldMapId = -1;
 $tilemaps = '';
 $tilemapslut = '';
 $tilemapslutlut = '';
-$asmMapId = -1; // will be increased to zero
+$asmMapId = 0; // will be increased to zero
 $genericAddressPrefix = 0;
-foreach($sql->query("SELECT `data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript`,`entryScript` FROM `tilemaps` ORDER BY `mapId` ASC",[]) as $t){
-	if($t['mapId'] != $oldMapId){
-		$asmMapId++;
-		$tilemapslutlut .= "put_address(++world#$asmMapId++)\n";
-		$tilemapslut .= "label(++world#$asmMapId++)\n";
-		$oldMapId = $t['mapId'];
-		$defines['world_'.$t['mapId']] = $asmMapId;
-		$defines['world_'.strtolower($sql->query("SELECT `name` FROM `maps` WHERE `id`=%d",[$t['mapId']],0)['name'])] = $asmMapId;
-	}
-	$tilemaps .= "label(++tilemap#$t[id]++)\n";
 
-	$td = json_decode($t['data'],true);
-	$k = 0;
-	$xPos = (int)$t['x'] - (int)$mapDimensions['minx'];
-	$yPos = (int)$t['y'] - (int)$mapDimensions['miny'];
-	$mapId = $yPos * (int)$mapDimensions['width'] + $xPos;
-	$sql->query("UPDATE `tilemaps` SET `asm_id`='%s' WHERE `id`=%d",[dechexpad2($mapId),$t['id']]);
+$defaultMap = $vars->get('defaultMap');
+foreach($sql->query("SELECT `name`,`id` FROM `maps` WHERE `id` IN (".implode(',',array_map('intval',$mapIds)).")") as $m) {
+	$tilemapslutlut .= "put_address(++world#$asmMapId++)\n";
+	$tilemapslut .= "label(++world#$asmMapId++)\n";
+	$defines['world_'.$m['id']] = $asmMapId;
+	$defines['world_'.$m['name']] = $asmMapId;
 	
-	$tilemapslut .= "hex(".dechexpad2($mapId).")\nput_address(++tilemap#$t[id]++)\n";
-	$defines['tilemap_'.$t['id']] = $mapId;
+	foreach($sql->query("SELECT `id`,`data`,`id`,`x`,`y`,`area`,`mapId`,`exitScript`,`entryScript` FROM `tilemaps` WHERE `mapId`=%d",[(int)$m['id']]) as $t) {
+		$tilemaps .= "label(++tilemap#$t[id]++)\n";
 
-	$header = 0;
-	if(trim($t['exitScript'])){
-		$header |= 1;
-	}
-	if(trim($t['entryScript'])){
-		$header |= 2;
-	}
+		$td = json_decode($t['data'],true);
+		$k = 0;
+		$xPos = (int)$t['x'] - $mapDimensions[(int)$m['id']]['ox'] - $mapDimensions['minx'];
+		$yPos = (int)$t['y'] - $mapDimensions[(int)$m['id']]['oy'] - $mapDimensions['miny'];
+		$mapId = $yPos * (int)$mapDimensions['width'] + $xPos;
+		
+		if ($t['id'] == $defaultMap && !$defines['tilemaps_defaultmap']) {
+			$defines['tilemaps_defaultmap'] = "0x".dechexpad2($mapId);
+		}
 
-	$s = dechexpad2($header);
-	
-	$hexData = ['0x00'];
-	for($i = 0;$i < 8;$i++){
-		for($j = 0;$j < 12;$j++){
-			$s .= reverseEndian($spritesLUT[$td[$k]]);
-			$k++;
+		//$sql->query("UPDATE `tilemaps` SET `asm_id`='%s' WHERE `id`=%d",[dechexpad2($mapId),$t['id']]);
+		
+		$tilemapslut .= "hex(".dechexpad2($mapId).")\nput_address(++tilemap#$t[id]++)\n";
+		$defines['tilemap_'.$t['id']] = $mapId;
+
+		$header = 0;
+		if(trim($t['exitScript'])){
+			$header |= 1;
+		}
+		if(trim($t['entryScript'])){
+			$header |= 2;
+		}
+
+		$s = dechexpad2($header);
+		
+		$hexData = ['0x00'];
+		for($i = 0;$i < 8;$i++){
+			for($j = 0;$j < 12;$j++){
+				$s .= reverseEndian($spritesLUT[$td[$k]]);
+				$k++;
+			}
+		}
+
+		$tilemaps .= "hex($s)\n";
+		if(trim($t['entryScript'])){
+			$tilemaps .= "put_address(++tilemaps#$t[id]#entryscript++)\n";
+		}elseif(trim($t['exitScript'])){
+			$tilemaps .= "hex(00000000)\n";
+		}
+		if(trim($t['exitScript'])){
+			$tilemaps .= "put_address(++tilemaps#$t[id]#exitscript++)\n";
+		}
+		if(trim($t['entryScript'])){
+			$genericAddressPrefix++;
+			$tilemaps .= "label(++tilemaps#$t[id]#entryscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[entryScript]\nclear_vars\nset_address_prefix()\n";
+		}
+		if(trim($t['exitScript'])){
+			$genericAddressPrefix++;
+			$tilemaps .= "label(++tilemaps#$t[id]#exitscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[exitScript]\nclear_vars\nset_address_prefix()\n";
 		}
 	}
-
-	$tilemaps .= "hex($s)\n";
-	if(trim($t['entryScript'])){
-		$tilemaps .= "put_address(++tilemaps#$t[id]#entryscript++)\n";
-	}elseif(trim($t['exitScript'])){
-		$tilemaps .= "hex(00000000)\n";
-	}
-	if(trim($t['exitScript'])){
-		$tilemaps .= "put_address(++tilemaps#$t[id]#exitscript++)\n";
-	}
-	if(trim($t['entryScript'])){
-		$genericAddressPrefix++;
-		$tilemaps .= "label(++tilemaps#$t[id]#entryscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[entryScript]\nclear_vars\nset_address_prefix()\n";
-	}
-	if(trim($t['exitScript'])){
-		$genericAddressPrefix++;
-		$tilemaps .= "label(++tilemaps#$t[id]#exitscript++)\nset_address_prefix(##generic$genericAddressPrefix##)\n$t[exitScript]\nclear_vars\nset_address_prefix()\n";
-	}
-
+	
+	$asmMapId++;
 }
+
 $scriptOffset = strlen($datfile);
 $file = $tilemapslutlut.$tilemapslut.$tilemaps;
 
@@ -657,8 +680,6 @@ $defines['datfile_tilemaps_width'] = $mapDimensions['width'];
 
 
 
-$defaultMap = $sql->query("SELECT `asm_id` FROM `tilemaps` WHERE `id`=%d",[$vars->get('defaultMap')],0);
-$defines['tilemaps_defaultmap'] = "0x".$defaultMap['asm_id'];
 $maxspritespace = $sql->query("SELECT MAX(`spritespace`) AS `spritespace` FROM `tilemaps`",[],0);
 $defines['tilemaps_spritespace'] = $maxspritespace['spritespace'];
 
@@ -701,4 +722,3 @@ $html .= $file.'</textarea><hr><a href="/reuben3">&lt;&lt; Back</a>';
 
 $sql->switchDb('soru_homepage');
 echo $page->getPage('Create Asm',$html,$lang,$pathPartsParsed);
-?>
