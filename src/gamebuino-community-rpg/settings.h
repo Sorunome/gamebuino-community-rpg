@@ -1,1 +1,27 @@
+#define ENABLE_SOUND 1
+
+#define TILEMAP_WIDTH 12
+#define TILEMAP_HEIGHT 8
+#define TILE_WIDTH 8
+#define TILE_HEIGHT 8
+#define TILEMAP_SIZE (TILEMAP_WIDTH*TILEMAP_HEIGHT)
+
+#define FLAG_TILE_SCREENEND 0
+#define FLAG_TILE_WALKABLE 1
+#define FLAG_TILE_WALL 2
+#define FLAG_TILE_WATER 3
+#define FLAG_TILE_FALL 4
+#define FLAG_TILE_SCRIPT 5
+#define FLAG_TILE_MANUAL_SCRIPT 6
+#define FLAG_TILE_ICE 7
+
+
+#define ANIMATION_FREQUENCY 500 // ms
+#define SOUNDBUFFER_PAGE ((const char*)(231 * 128))
+#define SOUNDBUFFER_OFFSET (231 * 128)
+#define MAX_NUM_ENEMIES 10
+
 #define NUM_CHANNELS 2
+
+
+#include "defines.h"
